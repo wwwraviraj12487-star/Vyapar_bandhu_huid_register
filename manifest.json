@@ -1,21 +1,22 @@
 {
-  "name": "Vyapar Bandhu - HUID Register",
+  "name": "Vyapar Bandhu Jewellery HUID",
   "short_name": "Vyapar Bandhu",
-  "description": "Ravi Jewellers HUID Bill Check App",
-  "start_url": "./",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#b8860b",
+  "background_color": "#fff8e1",
+  "theme_color": "#ff8f00",
   "icons": [
     {
       "src": "logo.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
