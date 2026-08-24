@@ -49,7 +49,7 @@ async function loadShopProfile(){
   const snap=await getDoc(ref);
   if(snap.exists()){
     shopProfile=snap.data();
-    document.getElementById('shopDisplay').innerHTML = `<div style="display:flex;align-items:center;gap:10px;background:#fff3cd;padding:10px;border-radius:10px;border:2px solid #ff8f00"><img src="${shopProfile.logo||'https://via.placeholder.com/50'}" style="width:50px;height:50px;border-radius:50%;object-fit:cover"><div style="text-align:left"><b>${shopProfile.shopName}</b><br><span style="font-size:12px">${shopProfile.shopMobile}</span></div><button onclick="editShop()" style="width:auto;margin-left:auto;background:#333;padding:6px 12px;font-size:12px">Edit</button></div>`;
+    document.getElementById('shopDisplay').innerHTML = `<div style="display:flex;align-items:center;gap:10px;background:#fff3cd;padding:10px;border-radius:10px;border:2px solid #ff8f00"><img src="${shopProfile.logo||'https://via.placeholder.com/50'}" style="width:50px;height:50px;border-radius:50%;object-fit:cover"><div style="text-align:left"><b>${shopProfile.shopName}</b><br><span style="font-size:12px">📞 ${shopProfile.shopMobile}</span><br><span style="font-size:11px">📍 ${shopProfile.shopAddress}</span></div><button onclick="editShop()" style="width:auto;margin-left:auto;background:#333;padding:6px 12px;font-size:12px">Edit</button></div>`;
     document.getElementById('shopSetupCard').style.display='none';
     document.getElementById('sname').value=shopProfile.shopName||''; document.getElementById('smobile').value=shopProfile.shopMobile||''; document.getElementById('saddress').value=shopProfile.shopAddress||'';
   } else {
@@ -105,7 +105,7 @@ window.loadAll=async()=>{ if(!userEmail) return; const snap=await getDocs(collec
 function render(snap, isMain=false){
   let html=''; snap.forEach(d=>{ const b=d.data();
     const karatBadge = b.karat? `<span style="background:#ff8f00;color:white;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:5px">${b.karat}</span>` : '';
-    const shopHead = b.shopName? `<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;padding:8px;border-radius:8px;margin-bottom:8px;border:2px solid #ff8f00"><img src="${b.shopLogo||'https://via.placeholder.com/40'}" style="width:40px;height:40px;border-radius:50%;object-fit:cover"><div><b style="color:#e65100">${b.shopName}</b><br><span style="font-size:11px">📞 ${b.shopMobile}</span></div><span style="margin-left:auto;background:green;color:white;padding:2px 6px;border-radius:10px;font-size:10px">Verified</span></div>` : '';
+    const shopHead = b.shopName? `<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;padding:8px;border-radius:8px;margin-bottom:8px;border:2px solid #ff8f00"><img src="${b.shopLogo||'https://via.placeholder.com/40'}" style="width:40px;height:40px;border-radius:50%;object-fit:cover"><div><b style="color:#e65100">${b.shopName}</b><br><span style="font-size:11px">📞 ${b.shopMobile}<br>📍 ${b.shopAddress||''}</span></div><span style="margin-left:auto;background:green;color:white;padding:2px 6px;border-radius:10px;font-size:10px">Verified</span></div>` : '';
     let w = parseFloat(b.iweight) || 0; let r = parseFloat(b.irate) || 0; let mPercent = parseFloat(b.imaking) || 0;
     let goldValue = w * r;
     let makingValue = (goldValue * mPercent) / 100;
