@@ -98,28 +98,38 @@ let deferredPrompt;
 const installBtn = document.getElementById('installBtn');
 const downloadBar = document.getElementById('downloadBar');
 function isAppMode(){ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
-window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.style.display='block';
+  console.log('Install Ready!');
+});
 window.triggerInstall = async () => {
   if (deferredPrompt) {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') { installBtn.style.display = 'none'; downloadBar.style.display='none'; }
+    if (outcome === 'accepted') {
+      installBtn.style.display = 'none';
+      downloadBar.style.display='none';
+    }
     deferredPrompt = null;
   } else {
     alert('Install करने के लिए:\n1. ऊपर 3 बिंदु (⋮) दबाओ\n2. Add to Home Screen / Install App दबाओ');
   }
 };
 installBtn.addEventListener('click', triggerInstall);
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register(URL.createObjectURL(new Blob(['self.addEventListener("fetch",e=>{e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)))})'],{type:'text/javascript'}))); }
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(()=>console.log('SW OK')).catch(e=>console.log('SW Fail',e));
+}
 setTimeout(()=>{
   if(isAppMode()){
     installBtn.style.display = 'none';
     downloadBar.style.display = 'none';
   } else {
-    installBtn.style.display='block';
+    if(!deferredPrompt) installBtn.style.display='block';
     downloadBar.style.display='block';
   }
-}, 1000);
+}, 2000);
 window.addEventListener('appinstalled', ()=>{ installBtn.style.display = 'none'; downloadBar.style.display = 'none'; });
 </script>
 </body>
