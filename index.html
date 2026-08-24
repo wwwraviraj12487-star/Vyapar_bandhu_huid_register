@@ -2,11 +2,12 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vyapar Bandhu HUID - Final</title>
+<title>Vyapar Bandhu HUID - Wallet ₹20</title>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDocs, query, where, collectionGroup } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, collectionGroup, updateDoc, increment, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAUOfiR4hEdEphcrd5gPtBY1CA5oGP43V8",
@@ -22,23 +23,64 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
+const RAZORPAY_KEY = "rzp_live_TSSLcwOZn8V7er";
 let userEmail=null;
+let walletBalance=0;
 
 window.login=async()=>{ const r=await signInWithPopup(auth,provider); userEmail=r.user.email; }
 window.logout=()=>signOut(auth).then(()=>location.reload());
-onAuthStateChanged(auth,(u)=>{
- if(u){ userEmail=u.email; document.getElementById('loginBox').style.display='none'; document.getElementById('mainBox').style.display='block'; document.getElementById('userEmail').innerText='Login: '+userEmail; loadAll(); }
+onAuthStateChanged(auth,async(u)=>{
+ if(u){ userEmail=u.email; document.getElementById('loginBox').style.display='none'; document.getElementById('mainBox').style.display='block'; document.getElementById('userEmail').innerText='Login: '+userEmail; await loadWallet(); loadAll(); }
  else{ document.getElementById('loginBox').style.display='block'; document.getElementById('mainBox').style.display='none'; }
 });
 
+async function loadWallet(){
+  const ref=doc(db,"wallets",userEmail);
+  const snap=await getDoc(ref);
+  if(snap.exists()){ walletBalance=snap.data().balance||0; }
+  else { await setDoc(ref,{balance:0,email:userEmail}); walletBalance=0; }
+  document.getElementById('walletBal').innerText="₹"+walletBalance;
+  document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance;
+}
+
+window.rechargeWallet=()=>{
+  const amt=parseInt(document.getElementById('rechargeAmt').value);
+  if(!amt || amt<10){ alert("कम से कम ₹10 डालो"); return; }
+  var options={
+    "key": RAZORPAY_KEY,
+    "amount": amt*100,
+    "currency": "INR",
+    "name": "Vyapar Bandhu Wallet",
+    "description": "Wallet Recharge ₹"+amt,
+    "handler": async function(response){
+      const ref=doc(db,"wallets",userEmail);
+      try{ await updateDoc(ref,{balance: increment(amt)}); }catch(e){ await setDoc(ref,{balance:amt,email:userEmail}); }
+      await addDoc(collection(db,"wallet_tx",userEmail,"tx"),{type:"CREDIT",amount:amt,paymentId:response.razorpay_payment_id,time:new Date()});
+      alert("✅ Recharge Success! ₹"+amt+" Add हो गया");
+      loadWallet();
+    },
+    "prefill": { "email": userEmail },
+    "theme": { "color": "#ff8f00" }
+  };
+  var rzp=new Razorpay(options);
+  rzp.open();
+}
+
 window.generateNewHUID=async()=>{
+  if(walletBalance<20){ alert("⚠️ Wallet Balance कम है! पहले Recharge करो। ₹20 चाहिए। Balance: ₹"+walletBalance); return; }
   let chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', newHuid, exists=true;
   while(exists){
     newHuid=''; for(let i=0;i<6;i++) newHuid+=chars[Math.floor(Math.random()*chars.length)];
     const q=query(collectionGroup(db,'bills'), where('huid','==',newHuid)); const s=await getDocs(q); if(s.empty) exists=false;
   }
   document.getElementById('ihuid').value=newHuid;
-  document.getElementById('huidStatus').innerHTML='✅ नया HUID: <b style="color:red">'+newHuid+'</b> - ये दुनिया में नहीं है!';
+  const ref=doc(db,"wallets",userEmail);
+  await updateDoc(ref,{balance: increment(-20)});
+  walletBalance-=20;
+  document.getElementById('walletBal').innerText="₹"+walletBalance;
+  document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance;
+  await addDoc(collection(db,"wallet_tx",userEmail,"tx"),{type:"DEBIT",amount:20,reason:"New HUID: "+newHuid,time:new Date()});
+  document.getElementById('huidStatus').innerHTML='✅ नया HUID: <b style="color:red">'+newHuid+'</b><br><span style="color:green">₹20 कट गया। बचा: ₹'+walletBalance+'</span>';
 }
 
 window.saveBill=async()=>{
@@ -48,30 +90,48 @@ window.saveBill=async()=>{
   const file=document.getElementById('iphoto').files[0]; let photo=''; if(file) photo=await toBase64(file);
   const data={ cname:cname.value, caddress:caddress.value, cmobile:cmobile.value, iname:iname.value, iweight:iweight.value, irate:irate.value, imaking:imaking.value, huid:huid, hallmark:ihallmark.value, photo:photo, date:new Date().toLocaleString('hi-IN'), owner:userEmail };
   await setDoc(doc(db,'jewellery_bills',userEmail,'bills',huid), data);
-  alert('✅ Cloud में Save! अब कोई भी Search कर सकता है!'); loadAll();
+  alert('✅ Cloud में Save!'); loadAll();
 }
-
 window.searchBill=async()=>{
   const qText=document.getElementById('search').value.trim().toUpperCase() || document.getElementById('search2').value.trim().toUpperCase();
   if(!qText){ loadAll(); return; }
   const q=query(collectionGroup(db,'bills'), where('huid','==',qText)); const snap=await getDocs(q); render(snap);
 }
-window.loadAll=async()=>{
-  if(!userEmail) return; const snap=await getDocs(collection(db,'jewellery_bills',userEmail,'bills')); render(snap, true);
-}
+window.loadAll=async()=>{ if(!userEmail) return; const snap=await getDocs(collection(db,'jewellery_bills',userEmail,'bills')); render(snap, true); }
 function render(snap, isMain=false){
-  let html=''; snap.forEach(d=>{ const b=d.data(); html+=`<div class="bill">${b.photo?`<img src="${b.photo}">`:''}<h3>💎 ${b.iname} - ${b.iweight}</h3><p><b>ग्राहक:</b> ${b.cname} | ${b.cmobile}<br><b>HUID:</b> <span style="color:red;font-size:20px">${b.huid}</span><br><b>रेट:</b> ${b.irate} | Making: ${b.imaking}<br><b>Hallmark:</b> ${b.hallmark}</p></div>`; });
+  let html=''; snap.forEach(d=>{ const b=d.data(); html+=`<div class="bill">${b.photo?`<img src="${b.photo}">`:''}<h3>💎 ${b.iname} - ${b.iweight}</h3><p><b>ग्राहक:</b> ${b.cname} | ${b.cmobile}<br><b>HUID:</b> <span style="color:red;font-size:20px">${b.huid}</span></p></div>`; });
   const el = isMain? document.getElementById('resultMain') : document.getElementById('result');
   if(el) el.innerHTML=html||'<p style="text-align:center">कोई Bill नहीं मिला</p>';
   if(!isMain && document.getElementById('resultMain')) document.getElementById('resultMain').innerHTML=html;
 }
 function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.readAsDataURL(f); r.onload=()=>res(r.result); r.onerror=rej; }); }
 </script>
-<style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:15px}.card{background:white;padding:15px;border-radius:15px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:15px}input{width:100%;padding:12px;margin:6px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:14px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:10px}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:12px;margin-top:12px;background:white}.bill img{width:100%;max-height:220px;object-fit:contain}</style>
+<style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:15px}.card{background:white;padding:15px;border-radius:15px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:15px}input{width:100%;padding:12px;margin:6px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:14px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:10px}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:12px;margin-top:12px;background:white}.bill img{width:100%;max-height:220px;object-fit:contain}.wallet{background:linear-gradient(135deg,#00c853,#009624);color:white;padding:15px;border-radius:15px;margin-bottom:15px;text-align:center}</style>
 </head>
 <body>
 <h2 style="text-align:center">💎 Vyapar Bandhu HUID Cloud 💎</h2>
-<div id="loginBox" class="card" style="text-align:center"><h3>🔐 Gmail Login करो</h3><button class="btn-green" onclick="login()">Gmail से Login</button><div style="margin-top:20px"><p><b>ग्राहक हो? HUID से Bill देखो</b></p><input id="search" placeholder="🔍 HUID डालो जैसे AB12CD" oninput="searchBill()"><div id="result"></div></div></div>
-<div id="mainBox" style="display:none"><p id="userEmail" style="text-align:center;font-weight:bold"></p><button onclick="logout()" style="background:#333">Logout</button><input id="search2" placeholder="🔍 HUID Search - कोई भी मोबाइल से" oninput="searchBill()"><div class="card"><h3>नया Bill</h3><input id="cname" placeholder="ग्राहक नाम"><input id="caddress" placeholder="पता"><input id="cmobile" placeholder="मोबाइल"><input id="iname" placeholder="सामान"><input id="iweight" placeholder="वजन"><input id="irate" placeholder="रेट"><input id="imaking" placeholder="Making"><input id="ihuid" placeholder="HUID"><button class="btn-green" onclick="generateNewHUID()">✨ नया HUID बनाओ - दुनिया में Unique</button><p id="huidStatus"></p><input id="ihallmark" placeholder="Hallmark"><input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()">💾 Cloud में Save</button></div><div id="resultMain"></div></div>
+<div id="loginBox" class="card" style="text-align:center"><h3>🔐 Gmail Login करो</h3><button class="btn-green" onclick="login()">Gmail से Login</button><div style="margin-top:20px"><p><b>ग्राहक हो? HUID से Bill देखो</b></p><input id="search" placeholder="🔍 HUID डालो" oninput="searchBill()"><div id="result"></div></div></div>
+<div id="mainBox" style="display:none">
+<p id="userEmail" style="text-align:center;font-weight:bold"></p>
+<div class="wallet">
+<h3 style="margin:0">💰 Wallet Balance</h3>
+<h1 id="walletBal" style="font-size:36px;margin:5px 0">₹0</h1>
+<p style="margin:0;font-size:13px">हर नया HUID = ₹20 कटेगा</p>
+<div style="display:flex;gap:8px;margin-top:10px;background:white;border-radius:10px;padding:5px">
+<input id="rechargeAmt" type="number" placeholder="Amount 100, 500" style="flex:1;margin:0;border:none;color:black">
+<button onclick="rechargeWallet()" style="width:100px;margin:0;background:black">Recharge</button>
+</div>
+</div>
+<button onclick="logout()" style="background:#333">Logout</button>
+<input id="search2" placeholder="🔍 HUID Search" oninput="searchBill()">
+<div class="card">
+<h3>नया Bill - <span id="walletBal2" style="color:green">Balance: ₹0</span></h3>
+<input id="cname" placeholder="ग्राहक नाम"><input id="caddress" placeholder="पता"><input id="cmobile" placeholder="मोबाइल"><input id="iname" placeholder="सामान"><input id="iweight" placeholder="वजन"><input id="irate" placeholder="रेट"><input id="imaking" placeholder="Making"><input id="ihuid" placeholder="HUID" readonly style="background:#fff3cd;font-weight:bold">
+<button class="btn-green" onclick="generateNewHUID()">✨ नया HUID बनाओ - दुनिया में Unique (₹20 कटेगा)</button>
+<p id="huidStatus"></p>
+<input id="ihallmark" placeholder="Hallmark"><input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()">💾 Cloud में Save</button>
+</div>
+<div id="resultMain"></div>
+</div>
 </body>
 </html>
