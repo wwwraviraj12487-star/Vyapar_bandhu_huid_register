@@ -2,7 +2,7 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vyapar Bandhu HUID - Wallet ₹20</title>
+<title>Vyapar Bandhu HUID - Wallet ₹20 + Karat</title>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -85,12 +85,16 @@ window.generateNewHUID=async()=>{
 
 window.saveBill=async()=>{
   const huid=document.getElementById('ihuid').value.trim().toUpperCase(); if(!huid){alert('HUID बनाओ!');return}
+  const karat=document.getElementById('ikarat').value;
+  if(!karat){alert('कैरेट Select करो!');return}
   const q=query(collectionGroup(db,'bills'), where('huid','==',huid)); const snap=await getDocs(q);
   if(!snap.empty){ alert('⚠️ ये HUID पहले से है!'); return; }
   const file=document.getElementById('iphoto').files[0]; let photo=''; if(file) photo=await toBase64(file);
-  const data={ cname:cname.value, caddress:caddress.value, cmobile:cmobile.value, iname:iname.value, iweight:iweight.value, irate:irate.value, imaking:imaking.value, huid:huid, hallmark:ihallmark.value, photo:photo, date:new Date().toLocaleString('hi-IN'), owner:userEmail };
+  const data={ cname:cname.value, caddress:caddress.value, cmobile:cmobile.value, iname:iname.value, iweight:iweight.value, irate:irate.value, imaking:imaking.value, huid:huid, hallmark:ihallmark.value, karat:karat, photo:photo, date:new Date().toLocaleString('hi-IN'), owner:userEmail };
   await setDoc(doc(db,'jewellery_bills',userEmail,'bills',huid), data);
-  alert('✅ Cloud में Save!'); loadAll();
+  alert('✅ Cloud में Save! '+karat+' का सोना');
+  document.getElementById('ihuid').value=''; document.getElementById('huidStatus').innerHTML='';
+  loadAll();
 }
 window.searchBill=async()=>{
   const qText=document.getElementById('search').value.trim().toUpperCase() || document.getElementById('search2').value.trim().toUpperCase();
@@ -99,14 +103,16 @@ window.searchBill=async()=>{
 }
 window.loadAll=async()=>{ if(!userEmail) return; const snap=await getDocs(collection(db,'jewellery_bills',userEmail,'bills')); render(snap, true); }
 function render(snap, isMain=false){
-  let html=''; snap.forEach(d=>{ const b=d.data(); html+=`<div class="bill">${b.photo?`<img src="${b.photo}">`:''}<h3>💎 ${b.iname} - ${b.iweight}</h3><p><b>ग्राहक:</b> ${b.cname} | ${b.cmobile}<br><b>HUID:</b> <span style="color:red;font-size:20px">${b.huid}</span></p></div>`; });
+  let html=''; snap.forEach(d=>{ const b=d.data();
+    const karatBadge = b.karat? `<span style="background:#ff8f00;color:white;padding:2px 8px;border-radius:10px;font-size:12px;margin-left:5px">${b.karat}</span>` : '';
+    html+=`<div class="bill">${b.photo?`<img src="${b.photo}">`:''}<h3>💎 ${b.iname} - ${b.iweight} ${karatBadge}</h3><p><b>ग्राहक:</b> ${b.cname} | ${b.cmobile}<br><b>HUID:</b> <span style="color:red;font-size:20px">${b.huid}</span><br><b>कैरेट:</b> ${b.karat||''} | <b>रेट:</b> ${b.irate} | Making: ${b.imaking}<br><b>Hallmark:</b> ${b.hallmark}</p></div>`; });
   const el = isMain? document.getElementById('resultMain') : document.getElementById('result');
   if(el) el.innerHTML=html||'<p style="text-align:center">कोई Bill नहीं मिला</p>';
   if(!isMain && document.getElementById('resultMain')) document.getElementById('resultMain').innerHTML=html;
 }
 function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.readAsDataURL(f); r.onload=()=>res(r.result); r.onerror=rej; }); }
 </script>
-<style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:15px}.card{background:white;padding:15px;border-radius:15px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:15px}input{width:100%;padding:12px;margin:6px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:14px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:10px}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:12px;margin-top:12px;background:white}.bill img{width:100%;max-height:220px;object-fit:contain}.wallet{background:linear-gradient(135deg,#00c853,#009624);color:white;padding:15px;border-radius:15px;margin-bottom:15px;text-align:center}</style>
+<style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:15px}.card{background:white;padding:15px;border-radius:15px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:15px}input,select{width:100%;padding:12px;margin:6px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:14px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:10px}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:12px;margin-top:12px;background:white}.bill img{width:100%;max-height:220px;object-fit:contain}.wallet{background:linear-gradient(135deg,#00c853,#009624);color:white;padding:15px;border-radius:15px;margin-bottom:15px;text-align:center}</style>
 </head>
 <body>
 <h2 style="text-align:center">💎 Vyapar Bandhu HUID Cloud 💎</h2>
@@ -126,10 +132,22 @@ function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); 
 <input id="search2" placeholder="🔍 HUID Search" oninput="searchBill()">
 <div class="card">
 <h3>नया Bill - <span id="walletBal2" style="color:green">Balance: ₹0</span></h3>
-<input id="cname" placeholder="ग्राहक नाम"><input id="caddress" placeholder="पता"><input id="cmobile" placeholder="मोबाइल"><input id="iname" placeholder="सामान"><input id="iweight" placeholder="वजन"><input id="irate" placeholder="रेट"><input id="imaking" placeholder="Making"><input id="ihuid" placeholder="HUID" readonly style="background:#fff3cd;font-weight:bold">
+<input id="cname" placeholder="ग्राहक नाम"><input id="caddress" placeholder="पता"><input id="cmobile" placeholder="मोबाइल"><input id="iname" placeholder="सामान (जैसे हार, अंगूठी)">
+<input id="iweight" placeholder="वजन (जैसे 10 ग्राम)">
+<label style="font-weight:bold;margin-top:8px;display:block">सोना कितना कैरेट का है? ✨</label>
+<select id="ikarat" style="background:#fff8e1;font-weight:bold">
+<option value="">-- कैरेट Select करो --</option>
+<option value="24K (999) - शुद्ध सोना">24K (999) - शुद्ध सोना - 99.9%</option>
+<option value="22K (916) - सबसे ज्यादा बिकने वाला">22K (916) - सबसे ज्यादा बिकने वाला - 91.6%</option>
+<option value="20K (833)">20K (833) - 83.3%</option>
+<option value="18K (750)">18K (750) - 75.0%</option>
+<option value="14K (585)">14K (585) - 58.5%</option>
+<option value="10K (417)">10K (417) - 41.7%</option>
+</select>
+<input id="irate" placeholder="रेट (आज का सोने का भाव)"><input id="imaking" placeholder="Making Charges"><input id="ihuid" placeholder="HUID" readonly style="background:#fff3cd;font-weight:bold">
 <button class="btn-green" onclick="generateNewHUID()">✨ नया HUID बनाओ - दुनिया में Unique (₹20 कटेगा)</button>
 <p id="huidStatus"></p>
-<input id="ihallmark" placeholder="Hallmark"><input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()">💾 Cloud में Save</button>
+<input id="ihallmark" placeholder="Hallmark No."><input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()">💾 Cloud में Save</button>
 </div>
 <div id="resultMain"></div>
 </div>
