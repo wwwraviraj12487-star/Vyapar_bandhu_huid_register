@@ -30,15 +30,14 @@ window.loadAll=async()=>{ if(!userEmail) return; const snap=await getDocs(collec
 function render(snap, isMain=false){ let html=''; snap.forEach(d=>{ const b=d.data(); let cleanMaking = (b.imaking||'').toString().replace(/%/g,''); const karatBadge = b.karat? `<span style="background:#ff8f00;color:white;padding:3px 10px;border-radius:15px;font-size:12px;display:inline-block;white-space:nowrap">${b.karat}</span>` : ''; const shopHead = b.shopName? `<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;padding:8px;border-radius:8px;margin-bottom:8px;border:2px solid #ff8f00"><img src="${b.shopLogo||'logo.png'}" style="width:40px;height:40px;border-radius:50%;object-fit:cover"><div><b style="color:#e65100">${b.shopName}</b><br><span style="font-size:11px">📞 ${b.shopMobile}<br>📍 ${b.shopAddress||''}</span></div><span style="margin-left:auto;background:green;color:white;padding:2px 6px;border-radius:10px;font-size:10px">Verified</span></div>` : ''; let w = parseFloat(b.iweight) || 0; let r = parseFloat(b.irate) || 0; let mPercent = parseFloat(cleanMaking) || 0; let goldValue = w * r; let makingValue = (goldValue * mPercent) / 100; let total = goldValue + makingValue; html+=`<div class="bill">${shopHead}${b.photo?`<img src="${b.photo}">`:''}<h3>💎 ${b.iname} - ${b.iweight} ${karatBadge}</h3><p><b>ग्राहक:</b> ${b.cname} | ${b.cmobile}<br><b>HUID:</b> <span style="color:red;font-size:20px">${b.huid}</span><br><b>कैरेट:</b> ${b.karat||''}<br><b>Hallmark:</b> ${b.hallmark||''}<br><b>वजन:</b> ${b.iweight}<br><b>सोने का रेट:</b> ₹${b.irate}/gram<br><b>सोने का दाम:</b> ₹${goldValue.toLocaleString('en-IN')}<br><b>Making:</b> ${cleanMaking}% = ₹${makingValue.toLocaleString('en-IN')}<br><b style="font-size:18px;background:yellow;padding:3px 8px;border-radius:5px">💰 Total: ₹${total.toLocaleString('en-IN')}</b><br><span style="font-size:11px">📍 ${b.shopAddress||''} | 📅 ${b.date}</span></p><div style="display:flex;gap:8px;margin-top:10px"><button onclick="window.print()" style="background:#333">🖨️ Print</button><button onclick="window.open('https://wa.me/?text='+encodeURIComponent('💎 ${b.shopName} - HUID: ${b.huid} - Total: ₹${total}'))" style="background:#25D366">📱 WhatsApp</button></div></div>`; }); const el = isMain? document.getElementById('resultMain') : document.getElementById('result'); if(el) el.innerHTML=html||'<p style="text-align:center">कोई Bill नहीं मिला</p>'; if(!isMain && document.getElementById('resultMain')) document.getElementById('resultMain').innerHTML=html; }
 function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.readAsDataURL(f); r.onload=()=>res(r.result); r.onerror=rej; }); }
 </script>
-<style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:0}.top-banner{background:linear-gradient(135deg,#ff8f00 0%,#ff6f00 50%,#e65100 100%);color:white;padding:18px 12px;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,.3)}.top-banner h1{margin:0;font-size:19px;text-shadow:2px 2px 4px rgba(0,0,0,.3)}.top-banner p{margin:5px 0 0;font-size:12px;font-weight:bold}.flag-badge{display:inline-block;background:white;color:#ff6f00;padding:3px 10px;border-radius:20px;font-size:11px;margin-left:6px}.main-content{padding:15px}.card{background:white;padding:15px;border-radius:15px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:15px}input,select{width:100%;padding:12px;margin:6px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:14px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:10px;cursor:pointer}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.btn-blue{background:linear-gradient(45deg,#1976d2,#0d47a1)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:12px;margin-top:12px;background:white}.bill img{width:100%;max-height:220px;object-fit:contain}.wallet{background:linear-gradient(135deg,#00c853,#009624);color:white;padding:15px;border-radius:15px;margin-bottom:15px;text-align:center}.download-bar{background:white;padding:12px;text-align:center;border-bottom:2px solid #ff8f00}#installBtn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:linear-gradient(45deg,#25D366,#128C7E);color:white;padding:15px 22px;border-radius:50px;font-weight:bold;box-shadow:0 6px 20px rgba(0,0,0,.3);border:none;width:92%;max-width:360px;display:block;animation:bounce 2s infinite}@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}</style>
+<style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:0}.top-banner{background:linear-gradient(135deg,#ff8f00 0%,#ff6f00 50%,#e65100 100%);color:white;padding:18px 12px;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,.3)}.top-banner h1{margin:0;font-size:19px;text-shadow:2px 2px 4px rgba(0,0,0,.3)}.top-banner p{margin:5px 0 0;font-size:12px;font-weight:bold}.flag-badge{display:inline-block;background:white;color:#ff6f00;padding:3px 10px;border-radius:20px;font-size:11px;margin-left:6px}.main-content{padding:15px}.card{background:white;padding:15px;border-radius:15px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:15px}input,select{width:100%;padding:12px;margin:6px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:14px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:10px;cursor:pointer}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.btn-blue{background:linear-gradient(45deg,#1976d2,#0d47a1)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:12px;margin-top:12px;background:white}.bill img{width:100%;max-height:220px;object-fit:contain}.wallet{background:linear-gradient(135deg,#00c853,#009624);color:white;padding:15px;border-radius:15px;margin-bottom:15px;text-align:center}.download-bar{background:white;padding:12px;text-align:center;border-bottom:2px solid #ff8f00}#installBtn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:linear-gradient(45deg,#25D366,#128C7E);color:white;padding:15px 22px;border-radius:50px;font-weight:bold;box-shadow:0 6px 20px rgba(0,0,0,.3);border:none;width:92%;max-width:360px;display:none;animation:bounce 2s infinite}@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}</style>
 </head>
 <body>
 <div class="top-banner">
   <h1>💎 VYAPAR BANDHU JEWELLERY HUID <span class="flag-badge">🇮🇳 MADE IN BIHAR</span></h1>
   <p>RAJISTARD BILLING • HALLMARK • VERIFIED • DEHRI, BIHAR</p>
 </div>
-<!-- Download Bar - Hamesha Dikhega -->
-<div class="download-bar">
+<div class="download-bar" id="downloadBar">
   <button onclick="triggerInstall()" style="background:linear-gradient(45deg,#25D366,#128C7E);padding:13px;border-radius:50px;width:100%;font-size:15px;border:none;color:white;font-weight:bold">📲 एक क्लिक में App Download करो - यहीं से</button>
   <p style="font-size:11px;color:#666;margin:6px 0 0">बिना Play Store के - सीधे मोबाइल में Install होगा</p>
 </div>
@@ -51,20 +50,48 @@ function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); 
 <script>
 let deferredPrompt;
 const installBtn = document.getElementById('installBtn');
+const downloadBar = document.getElementById('downloadBar');
+
+function isAppMode(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
+
 window.triggerInstall = async () => {
   if (deferredPrompt) {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') { installBtn.style.display = 'none'; }
+    if (outcome === 'accepted') {
+      installBtn.style.display = 'none';
+      downloadBar.style.display='none';
+    }
     deferredPrompt = null;
   } else {
-    alert('Install करने के लिए:\\n1. ऊपर 3 बिंदु (⋮) दबाओ\\n2. Add to Home Screen / Install App दबाओ\\n\\nLogo के साथ आपका App Install हो जायेगा!');
+    alert('Install करने के लिए:\n1. ऊपर 3 बिंदु (⋮) दबाओ\n2. Add to Home Screen / Install App दबाओ\n\nLogo के साथ आपका App Install हो जायेगा!');
   }
 };
+
 installBtn.addEventListener('click', triggerInstall);
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register(URL.createObjectURL(new Blob(['self.addEventListener("fetch",e=>{e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)))})'],{type:'text/javascript'}))); }
-setTimeout(()=>{ installBtn.style.display='block'; }, 1500);
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register(URL.createObjectURL(new Blob(['self.addEventListener("fetch",e=>{e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)))})'],{type:'text/javascript'})));
+}
+
+setTimeout(()=>{
+  if(isAppMode()){
+    installBtn.style.display = 'none';
+    downloadBar.style.display = 'none';
+  } else {
+    installBtn.style.display='block';
+    downloadBar.style.display='block';
+  }
+}, 1000);
+
+window.addEventListener('appinstalled', ()=>{
+  installBtn.style.display = 'none';
+  downloadBar.style.display = 'none';
+});
 </script>
 </body>
 </html>
