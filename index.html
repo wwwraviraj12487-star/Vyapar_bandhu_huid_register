@@ -77,21 +77,26 @@ window.rechargeWallet=()=>{
 }
 
 window.generateNewHUID=async()=>{
-  if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); document.getElementById('shopSetupCard').style.display='block'; return; }
-  if(walletBalance<20){ alert("⚠️ Wallet Balance कम है! Balance: ₹"+walletBalance); return; }
-  let chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', newHuid, exists=true;
-  while(exists){ newHuid=''; for(let i=0;i<6;i++) newHuid+=chars[Math.floor(Math.random()*chars.length)]; const q=query(collectionGroup(db,'bills'), where('huid','==',newHuid)); const s=await getDocs(q); if(s.empty) exists=false; }
-  document.getElementById('ihuid').value=newHuid; const ref=doc(db,"wallets",userEmail); await updateDoc(ref,{balance: increment(-20)}); walletBalance-=20;
-  document.getElementById('walletBal').innerText="₹"+walletBalance; document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance;
-  await addDoc(collection(db,"wallet_tx",userEmail,"tx"),{type:"DEBIT",amount:20,reason:"New HUID: "+newHuid,time:new Date()});
-  document.getElementById('huidStatus').innerHTML='✅ नया HUID: <b style="color:red">'+newHuid+'</b><br><span style="color:green">₹20 कट गया। बचा: ₹'+walletBalance+'</span>';
+  try{
+    if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); document.getElementById('shopSetupCard').style.display='block'; return; }
+    if(walletBalance<20){ alert("⚠️ Wallet Balance कम है! Balance: ₹"+walletBalance); return; }
+    let chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let newHuid=''; for(let i=0;i<6;i++) newHuid+=chars[Math.floor(Math.random()*chars.length)];
+    document.getElementById('ihuid').value=newHuid;
+    const ref=doc(db,"wallets",userEmail);
+    try{ await updateDoc(ref,{balance: increment(-20)}); }catch(e){ await setDoc(ref,{balance:walletBalance-20,email:userEmail}); }
+    walletBalance-=20;
+    document.getElementById('walletBal').innerText="₹"+walletBalance;
+    document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance;
+    await addDoc(collection(db,"wallet_tx",userEmail,"tx"),{type:"DEBIT",amount:20,reason:"New HUID: "+newHuid,time:new Date()});
+    document.getElementById('huidStatus').innerHTML='✅ नया HUID: <b style="color:red">'+newHuid+'</b><br><span style="color:green">₹20 कट गया। बचा: ₹'+walletBalance+'</span>';
+  }catch(err){ alert("Error: "+err.message); }
 }
 
 window.saveBill=async()=>{
   if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; }
   const huid=document.getElementById('ihuid').value.trim().toUpperCase(); if(!huid){alert('HUID बनाओ!');return}
   const karat=document.getElementById('ikarat').value; if(!karat){alert('कैरेट Select करो!');return}
-  const q=query(collectionGroup(db,'bills'), where('huid','==',huid)); const snap=await getDocs(q); if(!snap.empty){ alert('⚠️ ये HUID पहले से है!'); return; }
   const file=document.getElementById('iphoto').files[0]; let photo=''; if(file) photo=await toBase64(file);
   const data={ cname:cname.value, caddress:caddress.value, cmobile:cmobile.value, iname:iname.value, iweight:iweight.value, irate:irate.value, imaking:imaking.value, huid:huid, hallmark:ihallmark.value, karat:karat, shopName:shopProfile.shopName, shopMobile:shopProfile.shopMobile, shopAddress:shopProfile.shopAddress, shopLogo:shopProfile.logo, photo:photo, date:new Date().toLocaleString('hi-IN'), owner:userEmail };
   await setDoc(doc(db,'jewellery_bills',userEmail,'bills',huid), data); alert('✅ '+shopProfile.shopName+' के नाम से Save! Total Bill Ready!'); document.getElementById('ihuid').value=''; document.getElementById('huidStatus').innerHTML=''; loadAll();
