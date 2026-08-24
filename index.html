@@ -25,12 +25,20 @@ window.saveShopProfile=async()=>{ const shopName=document.getElementById('sname'
 window.rechargeWallet=()=>{ const amt=parseInt(document.getElementById('rechargeAmt').value); if(!amt || amt<10){ alert("कम से कम ₹10 डालो"); return; } var options={ "key": RAZORPAY_KEY, "amount": amt*100, "currency": "INR", "name": "Vyapar Bandhu Wallet", "description": "Wallet Recharge ₹"+amt, "handler": async function(response){ const ref=doc(db,"wallets",userEmail); try{ await updateDoc(ref,{balance: increment(amt)}); }catch(e){ await setDoc(ref,{balance:amt,email:userEmail}); } alert("✅ Recharge Success! ₹"+amt+" Add हो गया"); loadWallet(); }, "prefill": { "email": userEmail }, "theme": { "color": "#ff8f00" } }; var rzp=new Razorpay(options); rzp.open(); }
 window.generateNewHUID=()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } if(walletBalance<20){ alert("⚠️ Wallet Balance कम है! ₹"+walletBalance); return; } let chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let newHuid=''; for(let i=0;i<6;i++) newHuid+=chars[Math.floor(Math.random()*chars.length)]; document.getElementById('ihuid').value=newHuid; document.getElementById('huidStatus').innerHTML='✅ नया HUID: <b style="color:red;font-size:20px">'+newHuid+'</b><br><span style="color:green">अब Save करो, तब ₹20 कटेगा</span>'; }
 window.saveBill=async()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } const huid=document.getElementById('ihuid').value.trim().toUpperCase(); if(!huid){alert('HUID बनाओ!');return} const karat=document.getElementById('ikarat').value; if(!karat){alert('कैरेट Select करो!');return} if(walletBalance<20){ alert("Balance कम है!"); return; } const file=document.getElementById('iphoto').files[0]; let photo=''; if(file) photo=await toBase64(file); let makingRaw = document.getElementById('imaking').value.replace('%','').trim(); const data={ cname:cname.value, caddress:caddress.value, cmobile:cmobile.value, iname:iname.value, iweight:iweight.value, irate:irate.value, imaking:makingRaw, huid:huid, hallmark:ihallmark.value, karat:karat, shopName:shopProfile.shopName, shopMobile:shopProfile.shopMobile, shopAddress:shopProfile.shopAddress, shopLogo:shopProfile.logo, photo:photo, date:new Date().toLocaleString('hi-IN'), owner:userEmail }; await setDoc(doc(db,'jewellery_bills',userEmail,'bills',huid), data); const ref=doc(db,"wallets",userEmail); try{ await updateDoc(ref,{balance: increment(-20)}); }catch(e){ await setDoc(ref,{balance:walletBalance-20,email:userEmail}); } walletBalance-=20; document.getElementById('walletBal').innerText="₹"+walletBalance; document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance; alert('✅ '+shopProfile.shopName+' के नाम से Save! ₹20 kat gaya!'); document.getElementById('ihuid').value=''; document.getElementById('huidStatus').innerHTML=''; loadAll(); }
-window.searchBill=async()=>{ const qText=document.getElementById('search').value.trim().toUpperCase() || document.getElementById('search2').value.trim().toUpperCase(); if(!qText){ loadAll(); return; } const q=query(collectionGroup(db,'bills'), where('huid','==',qText)); const snap=await getDocs(q); render(snap); }
+window.searchBill=async()=>{
+  const t1=document.getElementById('search').value.trim().toUpperCase();
+  const t2=document.getElementById('search2').value.trim().toUpperCase();
+  const qText = t1 || t2;
+  if(!qText){ alert('पहले HUID डालो!'); return; }
+  const q=query(collectionGroup(db,'bills'), where('huid','==',qText));
+  const snap=await getDocs(q);
+  render(snap);
+}
 window.loadAll=async()=>{ if(!userEmail) return; const snap=await getDocs(collection(db,'jewellery_bills',userEmail,'bills')); render(snap, true); }
-function render(snap, isMain=false){ let html=''; snap.forEach(d=>{ const b=d.data(); let cleanMaking = (b.imaking||'').toString().replace(/%/g,''); const karatBadge = b.karat? `<span style="background:#ff8f00;color:white;padding:3px 10px;border-radius:15px;font-size:12px;display:inline-block;white-space:nowrap">${b.karat}</span>` : ''; const shopHead = b.shopName? `<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;padding:8px;border-radius:8px;margin-bottom:8px;border:2px solid #ff8f00"><img src="${b.shopLogo||'logo.png'}" style="width:40px;height:40px;border-radius:50%;object-fit:cover"><div><b style="color:#e65100">${b.shopName}</b><br><span style="font-size:11px">📞 ${b.shopMobile}<br>📍 ${b.shopAddress||''}</span></div><span style="margin-left:auto;background:green;color:white;padding:2px 6px;border-radius:10px;font-size:10px">Verified</span></div>` : ''; let w = parseFloat(b.iweight) || 0; let r = parseFloat(b.irate) || 0; let mPercent = parseFloat(cleanMaking) || 0; let goldValue = w * r; let makingValue = (goldValue * mPercent) / 100; let total = goldValue + makingValue; html+=`<div class="bill">${shopHead}${b.photo?`<img src="${b.photo}">`:''}<h3>💎 ${b.iname} - ${b.iweight} ${karatBadge}</h3><p><b>ग्राहक:</b> ${b.cname} | ${b.cmobile}<br><b>HUID:</b> <span style="color:red;font-size:20px">${b.huid}</span><br><b>कैरेट:</b> ${b.karat||''}<br><b>Hallmark:</b> ${b.hallmark||''}<br><b>वजन:</b> ${b.iweight}<br><b>सोने का रेट:</b> ₹${b.irate}/gram<br><b>सोने का दाम:</b> ₹${goldValue.toLocaleString('en-IN')}<br><b>Making:</b> ${cleanMaking}% = ₹${makingValue.toLocaleString('en-IN')}<br><b style="font-size:18px;background:yellow;padding:3px 8px;border-radius:5px">💰 Total: ₹${total.toLocaleString('en-IN')}</b><br><span style="font-size:11px">📍 ${b.shopAddress||''} | 📅 ${b.date}</span></p><div style="display:flex;gap:8px;margin-top:10px"><button onclick="window.print()" style="background:#333">🖨️ Print</button><button onclick="window.open('https://wa.me/?text='+encodeURIComponent('💎 ${b.shopName} - HUID: ${b.huid} - Total: ₹${total}'))" style="background:#25D366">📱 WhatsApp</button></div></div>`; }); const el = isMain? document.getElementById('resultMain') : document.getElementById('result'); if(el) el.innerHTML=html||'<p style="text-align:center">कोई Bill नहीं मिला</p>'; if(!isMain && document.getElementById('resultMain')) document.getElementById('resultMain').innerHTML=html; }
+function render(snap, isMain=false){ let html=''; snap.forEach(d=>{ const b=d.data(); let cleanMaking = (b.imaking||'').toString().replace(/%/g,''); const karatBadge = b.karat? `<span style="background:#ff8f00;color:white;padding:3px 10px;border-radius:15px;font-size:12px;display:inline-block;white-space:nowrap">${b.karat}</span>` : ''; const shopHead = b.shopName? `<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;padding:8px;border-radius:8px;margin-bottom:8px;border:2px solid #ff8f00"><img src="${b.shopLogo||'logo.png'}" style="width:40px;height:40px;border-radius:50%;object-fit:cover"><div><b style="color:#e65100">${b.shopName}</b><br><span style="font-size:11px">📞 ${b.shopMobile}<br>📍 ${b.shopAddress||''}</span></div><span style="margin-left:auto;background:green;color:white;padding:2px 6px;border-radius:10px;font-size:10px">Verified</span></div>` : ''; let w = parseFloat(b.iweight) || 0; let r = parseFloat(b.irate) || 0; let mPercent = parseFloat(cleanMaking) || 0; let goldValue = w * r; let makingValue = (goldValue * mPercent) / 100; let total = goldValue + makingValue; html+=`<div class="bill">${shopHead}${b.photo?`<img src="${b.photo}">`:''}<h3>💎 ${b.iname} - ${b.iweight} ${karatBadge}</h3><p><b>ग्राहक:</b> ${b.cname} | ${b.cmobile}<br><b>HUID:</b> <span style="color:red;font-size:20px">${b.huid}</span><br><b>कैरेट:</b> ${b.karat||''}<br><b>Hallmark:</b> ${b.hallmark||''}<br><b>वजन:</b> ${b.iweight}<br><b>सोने का रेट:</b> ₹${b.irate}/gram<br><b>सोने का दाम:</b> ₹${goldValue.toLocaleString('en-IN')}<br><b>Making:</b> ${cleanMaking}% = ₹${makingValue.toLocaleString('en-IN')}<br><b style="font-size:18px;background:yellow;padding:3px 8px;border-radius:5px">💰 Total: ₹${total.toLocaleString('en-IN')}</b><br><span style="font-size:11px">📍 ${b.shopAddress||''} | 📅 ${b.date}</span></p><div style="display:flex;gap:8px;margin-top:10px"><button onclick="window.print()" style="background:#333">🖨️ Print</button><button onclick="window.open('https://wa.me/?text='+encodeURIComponent('💎 ${b.shopName} - HUID: ${b.huid} - Total: ₹${total}'))" style="background:#25D366">📱 WhatsApp</button></div></div>`; }); const el = isMain? document.getElementById('resultMain') : document.getElementById('result'); if(el) el.innerHTML=html||'<p style="text-align:center;color:red">❌ कोई Bill नहीं मिला - HUID सही डालो</p>'; if(!isMain && document.getElementById('resultMain')) document.getElementById('resultMain').innerHTML=html; }
 function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.readAsDataURL(f); r.onload=()=>res(r.result); r.onerror=rej; }); }
 </script>
-<style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:0}.top-banner{background:linear-gradient(135deg,#ff8f00 0%,#ff6f00 50%,#e65100 100%);color:white;padding:18px 12px;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,.3)}.top-banner h1{margin:0;font-size:19px;text-shadow:2px 2px 4px rgba(0,0,0,.3)}.top-banner p{margin:5px 0 0;font-size:12px;font-weight:bold}.flag-badge{display:inline-block;background:white;color:#ff6f00;padding:3px 10px;border-radius:20px;font-size:11px;margin-left:6px}.main-content{padding:15px}.card{background:white;padding:15px;border-radius:15px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:15px}input,select{width:100%;padding:12px;margin:6px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:14px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:10px;cursor:pointer}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.btn-blue{background:linear-gradient(45deg,#1976d2,#0d47a1)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:12px;margin-top:12px;background:white}.bill img{width:100%;max-height:220px;object-fit:contain}.wallet{background:linear-gradient(135deg,#00c853,#009624);color:white;padding:15px;border-radius:15px;margin-bottom:15px;text-align:center}.download-bar{background:white;padding:12px;text-align:center;border-bottom:2px solid #ff8f00}#installBtn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:linear-gradient(45deg,#25D366,#128C7E);color:white;padding:15px 22px;border-radius:50px;font-weight:bold;box-shadow:0 6px 20px rgba(0,0,0,.3);border:none;width:92%;max-width:360px;display:none;animation:bounce 2s infinite}@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}</style>
+<style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:0}.top-banner{background:linear-gradient(135deg,#ff8f00 0%,#ff6f00 50%,#e65100 100%);color:white;padding:18px 12px;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,.3)}.top-banner h1{margin:0;font-size:19px;text-shadow:2px 2px 4px rgba(0,0,0,.3)}.top-banner p{margin:5px 0 0;font-size:12px;font-weight:bold}.flag-badge{display:inline-block;background:white;color:#ff6f00;padding:3px 10px;border-radius:20px;font-size:11px;margin-left:6px}.main-content{padding:15px}.card{background:white;padding:15px;border-radius:15px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:15px}input,select{width:100%;padding:12px;margin:6px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:14px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:10px;cursor:pointer}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.btn-blue{background:linear-gradient(45deg,#1976d2,#0d47a1)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:12px;margin-top:12px;background:white}.bill img{width:100%;max-height:220px;object-fit:contain}.wallet{background:linear-gradient(135deg,#00c853,#009624);color:white;padding:15px;border-radius:15px;margin-bottom:15px;text-align:center}.download-bar{background:white;padding:12px;text-align:center;border-bottom:2px solid #ff8f00}#installBtn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:linear-gradient(45deg,#25D366,#128C7E);color:white;padding:15px 22px;border-radius:50px;font-weight:bold;box-shadow:0 6px 20px rgba(0,0,0,.3);border:none;width:92%;max-width:360px;display:none;animation:bounce 2s infinite}@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-6px)}}.search-row{display:flex;gap:8px;align-items:center}</style>
 </head>
 <body>
 <div class="top-banner">
@@ -43,41 +51,51 @@ function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); 
 </div>
 <div class="main-content">
 <h2 style="text-align:center;margin:10px 0">💎 Vyapar Bandhu HUID - All Set 💎</h2>
-<div id="loginBox" class="card" style="text-align:center"><h3>🔐 Gmail Login करो</h3><button class="btn-green" onclick="login()">Gmail से Login</button><div style="margin-top:20px"><p><b>ग्राहक हो? HUID से Bill देखो</b></p><input id="search" placeholder="🔍 HUID डालो" oninput="searchBill()"><div id="result"></div></div></div>
-<div id="mainBox" style="display:none"><p id="userEmail" style="text-align:center;font-weight:bold"></p><div id="shopDisplay" class="card" style="padding:10px"></div><div id="shopSetupCard" class="card" style="border:3px solid #1976d2"><h3 style="margin-top:0;color:#0d47a1">🏪 दुकान Admin Panel - एक बार सेट करो</h3><input id="sname" placeholder="🏪 दुकान का नाम *"><input id="smobile" placeholder="📞 दुकान मोबाइल *"><input id="saddress" placeholder="📍 दुकान का पता"><label style="font-size:12px;font-weight:bold">दुकान का Logo:</label><input type="file" id="slogo" accept="image/*"><button class="btn-blue" onclick="saveShopProfile()">💾 दुकान Save करो</button></div><div class="wallet"><h3 style="margin:0">💰 Wallet Balance</h3><h1 id="walletBal" style="font-size:36px;margin:5px 0">₹0</h1><p style="margin:0;font-size:13px">हर नया HUID = ₹20 कटेगा</p><div style="display:flex;gap:8px;margin-top:10px;background:white;border-radius:10px;padding:5px"><input id="rechargeAmt" type="number" placeholder="100, 500" style="flex:1;margin:0;border:none;color:black"><button onclick="rechargeWallet()" style="width:100px;margin:0;background:black">Recharge</button></div></div><button onclick="logout()" style="background:#333">Logout</button><input id="search2" placeholder="🔍 HUID Search" oninput="searchBill()"><div class="card"><h3>नया Bill - <span id="walletBal2" style="color:green">Balance: ₹0</span></h3><input id="cname" placeholder="ग्राहक नाम"><input id="caddress" placeholder="पता"><input id="cmobile" placeholder="मोबाइल"><input id="iname" placeholder="सामान"><input id="iweight" placeholder="वजन (10)"><label style="font-weight:bold;margin-top:8px;display:block">कैरेट Select करो ✨</label><select id="ikarat" style="background:#fff8e1;font-weight:bold"><option value="">-- कैरेट Select करो --</option><option value="24K (999) - शुद्ध सोना">24K (999) - शुद्ध सोना</option><option value="22K (916) - सबसे ज्यादा बिकने वाला">22K (916) - सबसे ज्यादा बिकने वाला</option><option value="20K (833)">20K (833)</option><option value="18K (750)">18K (750)</option><option value="14K (585)">14K (585)</option><option value="10K (417)">10K (417)</option></select><input id="irate" placeholder="रेट (₹/gram)"><input id="imaking" placeholder="Making Charges % (जैसे 10)"><input id="ihuid" placeholder="HUID" readonly style="background:#fff3cd;font-weight:bold"><button class="btn-green" onclick="generateNewHUID()">✨ नया HUID बनाओ (₹20 कटेगा)</button><p id="huidStatus"></p><input id="ihallmark" placeholder="Hallmark No."><input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()">💾 Cloud में Save</button></div><div id="resultMain"></div></div>
+<div id="loginBox" class="card" style="text-align:center">
+  <h3>🔐 Gmail Login करो</h3>
+  <button class="btn-green" onclick="login()">Gmail से Login</button>
+  <div style="margin-top:20px">
+    <p><b>ग्राहक हो? HUID से Bill देखो</b></p>
+    <div class="search-row">
+      <input id="search" placeholder="🔍 HUID डालो" style="flex:1;margin:0">
+      <button onclick="searchBill()" style="width:100px;margin:0;background:#1976d2;padding:12px;border-radius:8px">🔍 Search</button>
+    </div>
+    <div id="result" style="margin-top:10px"></div>
+  </div>
+</div>
+<div id="mainBox" style="display:none">
+  <p id="userEmail" style="text-align:center;font-weight:bold"></p>
+  <div id="shopDisplay" class="card" style="padding:10px"></div>
+  <div id="shopSetupCard" class="card" style="border:3px solid #1976d2"><h3 style="margin-top:0;color:#0d47a1">🏪 दुकान Admin Panel - एक बार सेट करो</h3><input id="sname" placeholder="🏪 दुकान का नाम *"><input id="smobile" placeholder="📞 दुकान मोबाइल *"><input id="saddress" placeholder="📍 दुकान का पता"><label style="font-size:12px;font-weight:bold">दुकान का Logo:</label><input type="file" id="slogo" accept="image/*"><button class="btn-blue" onclick="saveShopProfile()">💾 दुकान Save करो</button></div>
+  <div class="wallet"><h3 style="margin:0">💰 Wallet Balance</h3><h1 id="walletBal" style="font-size:36px;margin:5px 0">₹0</h1><p style="margin:0;font-size:13px">हर नया HUID = ₹20 कटेगा</p><div style="display:flex;gap:8px;margin-top:10px;background:white;border-radius:10px;padding:5px"><input id="rechargeAmt" type="number" placeholder="100, 500" style="flex:1;margin:0;border:none;color:black"><button onclick="rechargeWallet()" style="width:100px;margin:0;background:black">Recharge</button></div></div>
+  <button onclick="logout()" style="background:#333">Logout</button>
+  <div class="search-row" style="margin-top:15px">
+    <input id="search2" placeholder="🔍 HUID Search" style="flex:1;margin:0">
+    <button onclick="searchBill()" style="width:100px;margin:0;background:#1976d2;padding:12px;border-radius:8px">🔍 Search</button>
+  </div>
+  <div class="card"><h3>नया Bill - <span id="walletBal2" style="color:green">Balance: ₹0</span></h3><input id="cname" placeholder="ग्राहक नाम"><input id="caddress" placeholder="पता"><input id="cmobile" placeholder="मोबाइल"><input id="iname" placeholder="सामान"><input id="iweight" placeholder="वजन (10)"><label style="font-weight:bold;margin-top:8px;display:block">कैरेट Select करो ✨</label><select id="ikarat" style="background:#fff8e1;font-weight:bold"><option value="">-- कैरेट Select करो --</option><option value="24K (999) - शुद्ध सोना">24K (999) - शुद्ध सोना</option><option value="22K (916) - सबसे ज्यादा बिकने वाला">22K (916) - सबसे ज्यादा बिकने वाला</option><option value="20K (833)">20K (833)</option><option value="18K (750)">18K (750)</option><option value="14K (585)">14K (585)</option><option value="10K (417)">10K (417)</option></select><input id="irate" placeholder="रेट (₹/gram)"><input id="imaking" placeholder="Making Charges % (जैसे 10)"><input id="ihuid" placeholder="HUID" readonly style="background:#fff3cd;font-weight:bold"><button class="btn-green" onclick="generateNewHUID()">✨ नया HUID बनाओ (₹20 कटेगा)</button><p id="huidStatus"></p><input id="ihallmark" placeholder="Hallmark No."><input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()">💾 Cloud में Save</button></div>
+  <div id="resultMain"></div>
+</div>
 </div>
 <button id="installBtn">📲 एक क्लिक में App Download करो</button>
 <script>
 let deferredPrompt;
 const installBtn = document.getElementById('installBtn');
 const downloadBar = document.getElementById('downloadBar');
-
-function isAppMode(){
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-}
-
+function isAppMode(){ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
-
 window.triggerInstall = async () => {
   if (deferredPrompt) {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      installBtn.style.display = 'none';
-      downloadBar.style.display='none';
-    }
+    if (outcome === 'accepted') { installBtn.style.display = 'none'; downloadBar.style.display='none'; }
     deferredPrompt = null;
   } else {
-    alert('Install करने के लिए:\n1. ऊपर 3 बिंदु (⋮) दबाओ\n2. Add to Home Screen / Install App दबाओ\n\nLogo के साथ आपका App Install हो जायेगा!');
+    alert('Install करने के लिए:\n1. ऊपर 3 बिंदु (⋮) दबाओ\n2. Add to Home Screen / Install App दबाओ');
   }
 };
-
 installBtn.addEventListener('click', triggerInstall);
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register(URL.createObjectURL(new Blob(['self.addEventListener("fetch",e=>{e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)))})'],{type:'text/javascript'})));
-}
-
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register(URL.createObjectURL(new Blob(['self.addEventListener("fetch",e=>{e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)))})'],{type:'text/javascript'}))); }
 setTimeout(()=>{
   if(isAppMode()){
     installBtn.style.display = 'none';
@@ -87,11 +105,7 @@ setTimeout(()=>{
     downloadBar.style.display='block';
   }
 }, 1000);
-
-window.addEventListener('appinstalled', ()=>{
-  installBtn.style.display = 'none';
-  downloadBar.style.display = 'none';
-});
+window.addEventListener('appinstalled', ()=>{ installBtn.style.display = 'none'; downloadBar.style.display = 'none'; });
 </script>
 </body>
 </html>
