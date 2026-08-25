@@ -48,7 +48,6 @@ window.payAndCreateGST=async()=>{
   };
   var rzp=new Razorpay(options); rzp.open();
 }
-window.openGstDirect=()=>{ window.open('https://reg.gst.gov.in/registration/','_blank'); document.getElementById('gstGuide').style.display='block'; }
 async function loadGstLeads(){ if(!userEmail) return; const snap=await getDocs(collection(db,'gst_leads',userEmail,'leads')); let html=`<h4 style="margin:5px 0">📋 आपके GST Customers: ${snap.size} - Total कमाई: ₹${snap.size*1500}</h4>`; snap.forEach(d=>{ const g=d.data(); html+=`<div style="border:1px solid #ff8f00;padding:8px;border-radius:8px;margin:5px 0;background:#fff8e1"><b>${g.clientName}</b> - ${g.clientMobile}<br><span style="font-size:11px">${g.clientEmail} | ${g.date}</span><br><span style="font-size:11px;color:green;font-weight:bold">${g.status}</span></div>`; }); document.getElementById('gstLeadsList').innerHTML=html; }
 window.generateNewHUID=()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } if(walletBalance<20){ alert("⚠️ Wallet Balance कम है! ₹"+walletBalance); return; } let chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let newHuid=''; for(let i=0;i<6;i++) newHuid+=chars[Math.floor(Math.random()*chars.length)]; document.getElementById('ihuid').value=newHuid; document.getElementById('huidStatus').innerHTML='✅ नया HUID: <b style="color:red;font-size:20px">'+newHuid+'</b><br><span style="color:green">अब Save करो, तब ₹20 कटेगा</span>'; }
 window.saveBill=async()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } const huid=document.getElementById('ihuid').value.trim().toUpperCase(); if(!huid){alert('HUID बनाओ!');return} const karat=document.getElementById('ikarat').value; if(!karat){alert('कैरेट Select करो!');return} if(walletBalance<20){ alert("Balance कम है!"); return; } const file=document.getElementById('iphoto').files[0]; let photo=''; if(file) photo=await toBase64(file); let makingRaw = document.getElementById('imaking').value.replace('%','').trim(); const data={ cname:cname.value, caddress:caddress.value, cmobile:cmobile.value, iname:iname.value, iweight:iweight.value, irate:irate.value, imaking:makingRaw, huid:huid, hallmark:ihallmark.value, karat:karat, shopName:shopProfile.shopName, shopMobile:shopProfile.shopMobile, shopAddress:shopProfile.shopAddress, shopGst:shopProfile.shopGst, shopTin:shopProfile.shopTin, shopLogo:shopProfile.logo, photo:photo, date:new Date().toLocaleString('hi-IN'), owner:userEmail }; await setDoc(doc(db,'jewellery_bills',userEmail,'bills',huid), data); const ref=doc(db,"wallets",userEmail); try{ await updateDoc(ref,{balance: increment(-20)}); }catch(e){ await setDoc(ref,{balance:walletBalance-20,email:userEmail}); } walletBalance-=20; document.getElementById('walletBal').innerText="₹"+walletBalance; document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance; alert('✅ Save! ₹20 kat gaya!'); document.getElementById('ihuid').value=''; document.getElementById('huidStatus').innerHTML=''; loadAll(); }
@@ -83,31 +82,26 @@ function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); 
     <input id="gstPanNo" placeholder="PAN Number - ABCDE1234F">
     <input id="gstState" placeholder="State - Bihar">
     <button class="btn-green" onclick="payAndCreateGST()" style="font-size:18px;padding:15px">💰 ₹1500 Pay करो और GST Form खोलो</button>
-    <button onclick="openGstDirect()" style="background:#0d47a1">🌐 बिना Pay के Direct Form खोलो (FREE)</button>
     <div id="gstGuide" style="display:none;margin-top:12px">
       <h3 style="text-align:center;color:#e65100">📖 सरकारी Form कैसे भरना है - Hindi Guide</h3>
       <p style="font-size:12px;text-align:center;color:red">ऊपर वाले Photo में जो English लिखा है, उसका हिंदी मतलब यहाँ है:</p>
       <div class="guide-box">
         <h4>1️⃣ I am a * (आप कौन हो?)</h4>
-        <p>👉 <span class="highlight">Taxpayer</span> Select करो<br><span style="font-size:11px;color:#555">मतलब आप दुकानदार / व्यापारी हो</span></p>
+        <p>👉 <span class="highlight">Taxpayer</span> Select करो</p>
         <h4>2️⃣ State / UT * (राज्य)</h4>
         <p>👉 <span class="highlight">Bihar</span> Select करो</p>
         <h4>3️⃣ District (जिला)</h4>
-        <p>👉 <span class="highlight">Rohtas / Dehri</span> Select करो - आपका जिला</p>
-        <h4>4️⃣ Legal Name of Business * (PAN वाला नाम)</h4>
-        <p>👉 PAN Card पर जो नाम लिखा है वही लिखो<br>Ex: <b>RAJESH KUMAR</b></p>
+        <p>👉 <span class="highlight">Rohtas / Dehri</span> Select करो</p>
+        <h4>4️⃣ Legal Name * (PAN वाला नाम)</h4>
+        <p>👉 PAN Card पर जो नाम लिखा है वही लिखो</p>
         <h4>5️⃣ PAN *</h4>
-        <p>👉 आपका <span class="highlight">PAN Number</span> डालो - ABCDE1234F</p>
+        <p>👉 आपका PAN Number डालो</p>
         <h4>6️⃣ Email Address *</h4>
-        <p>👉 आपका <span class="highlight">Gmail ID</span> डालो<br>⚠️ OTP इसी पर आएगा और GST Certificate भी इसी पर आएगा!</p>
+        <p>👉 आपका Gmail ID डालो - OTP और GST इसी पर आएगा!</p>
         <h4>7️⃣ Mobile Number *</h4>
-        <p>👉 आपका <span class="highlight">Mobile Number</span> डालो<br>⚠️ OTP इस पर भी आएगा!</p>
-        <h4>8️⃣ PROCEED बटन</h4>
-        <p>👉 सब भरके <span class="highlight" style="background:#1976d2;color:white">PROCEED</span> दबाओ<br>फिर Email और Mobile पर OTP आएगा, TRN Number मिलेगा!</p>
-      </div>
-      <div style="background:#fff3cd;border:2px dashed #ff8f00;padding:10px;border-radius:10px">
-        <h4 style="color:#e65100;margin:0">⚠️ Important - ध्यान दो:</h4>
-        <p style="font-size:12px;margin:5px 0">✅ <b>Govt Fee ₹0</b> - सरकार पैसा नहीं लेती<br>✅ <b>आपका ₹1500</b> - Form भरने और 3 दिन तक Help करने का Charge<br>✅ <b>GST Certificate</b> - सीधा आपके Gmail पर PDF में आएगा (3 दिन में)<br>✅ <b>TRN Number</b> को लिखके रखो - आगे काम आएगा!</p>
+        <p>👉 आपका Mobile Number डालो - OTP आएगा!</p>
+        <h4>8️⃣ PROCEED</h4>
+        <p>👉 सब भरके PROCEED दबाओ - TRN Number मिलेगा!</p>
       </div>
     </div>
     <div id="gstLeadsList" style="margin-top:10px"></div>
