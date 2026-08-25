@@ -2,7 +2,7 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vyapar Bandhu HUID + GST + AUTO RETURN</title>
+<title>Vyapar Bandhu ULTIMATE AUTO RESET</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#ff8f00">
@@ -18,106 +18,69 @@ window.login=async()=>{ const r=await signInWithPopup(auth,provider); userEmail=
 window.logout=()=>signOut(auth).then(()=>location.reload());
 onAuthStateChanged(auth,async(u)=>{ if(u){ userEmail=u.email; document.getElementById('loginBox').style.display='none'; document.getElementById('mainBox').style.display='block'; document.getElementById('userEmail').innerText='Login: '+userEmail; await loadWallet(); await loadShopProfile(); loadAll(); loadGstLeads(); loadReturnLeads(); } else{ document.getElementById('loginBox').style.display='block'; document.getElementById('mainBox').style.display='none'; } });
 async function loadWallet(){ const ref=doc(db,"wallets",userEmail); const snap=await getDoc(ref); if(snap.exists()){ walletBalance=snap.data().balance||0; } else { await setDoc(ref,{balance:0,email:userEmail}); walletBalance=0; } document.getElementById('walletBal').innerText="₹"+walletBalance; document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance; }
-async function loadShopProfile(){ const ref=doc(db,"shops",userEmail); const snap=await getDoc(ref); if(snap.exists()){ shopProfile=snap.data(); document.getElementById('shopDisplay').innerHTML = `<div style="display:flex;align-items:center;gap:10px;background:#fff3cd;padding:10px;border-radius:10px;border:2px solid #ff8f00"><img src="${shopProfile.logo||'logo.png'}" style="width:50px;height:50px;border-radius:50%;object-fit:cover"><div style="text-align:left"><b>${shopProfile.shopName}</b><br><span style="font-size:12px">📞 ${shopProfile.shopMobile}</span><br><span style="font-size:11px">📍 ${shopProfile.shopAddress}</span><br><span style="font-size:10px;font-weight:bold;color:#0d47a1">GST: ${shopProfile.shopGst||'N/A'}</span></div><button onclick="editShop()" style="width:auto;margin-left:auto;background:#333;padding:6px 12px;font-size:12px">Edit</button></div>`; document.getElementById('shopSetupCard').style.display='none'; } else { document.getElementById('shopDisplay').innerHTML='<p style="color:red;text-align:center">⚠️ पहले दुकान Setup करो!</p>'; document.getElementById('shopSetupCard').style.display='block'; } }
+async function loadShopProfile(){ const ref=doc(db,"shops",userEmail); const snap=await getDoc(ref); if(snap.exists()){ shopProfile=snap.data(); document.getElementById('shopDisplay').innerHTML = `<div style="display:flex;align-items:center;gap:10px;background:#fff3cd;padding:10px;border-radius:10px;border:2px solid #ff8f00"><img src="${shopProfile.logo||'logo.png'}" style="width:50px;height:50px;border-radius:50%;object-fit:cover"><div style="text-align:left"><b>${shopProfile.shopName}</b><br><span style="font-size:12px">📞 ${shopProfile.shopMobile}</span><br><span style="font-size:11px">Last Return: ${shopProfile.lastReturnMonth||'अभी तक नहीं'}</span></div><button onclick="editShop()" style="width:auto;margin-left:auto;background:#333;padding:6px 12px;font-size:12px">Edit</button></div>`; document.getElementById('shopSetupCard').style.display='none'; } else { document.getElementById('shopDisplay').innerHTML='<p style="color:red;text-align:center">⚠️ पहले दुकान Setup करो!</p>'; document.getElementById('shopSetupCard').style.display='block'; } }
 window.editShop=()=>{ document.getElementById('shopSetupCard').style.display='block'; }
-window.saveShopProfile=async()=>{ const shopName=document.getElementById('sname').value.trim(); const shopMobile=document.getElementById('smobile').value.trim(); const shopAddress=document.getElementById('saddress').value.trim(); const shopGst=document.getElementById('sgst').value.trim().toUpperCase(); const shopTin=document.getElementById('stin').value.trim().toUpperCase(); if(!shopName||!shopMobile){ alert('दुकान का नाम और मोबाइल डालो!'); return; } let logo=''; const file=document.getElementById('slogo').files[0]; if(file) logo=await toBase64(file); else if(shopProfile && shopProfile.logo) logo=shopProfile.logo; const data={ shopName, shopMobile, shopAddress, shopGst, shopTin, logo, email:userEmail, updated:new Date().toLocaleString('hi-IN') }; await setDoc(doc(db,'shops',userEmail), data); shopProfile=data; alert('✅ दुकान Save हो गयी!'); loadShopProfile(); }
+window.saveShopProfile=async()=>{ const shopName=document.getElementById('sname').value.trim(); const shopMobile=document.getElementById('smobile').value.trim(); const shopAddress=document.getElementById('saddress').value.trim(); const shopGst=document.getElementById('sgst').value.trim().toUpperCase(); const shopTin=document.getElementById('stin').value.trim().toUpperCase(); if(!shopName||!shopMobile){ alert('दुकान का नाम और मोबाइल डालो!'); return; } let logo=''; const file=document.getElementById('slogo').files[0]; if(file) logo=await toBase64(file); else if(shopProfile && shopProfile.logo) logo=shopProfile.logo; const data={ shopName, shopMobile, shopAddress, shopGst, shopTin, logo, email:userEmail, updated:new Date().toLocaleString('hi-IN') }; await setDoc(doc(db,'shops',userEmail), data, {merge:true}); shopProfile={...shopProfile,...data}; alert('✅ दुकान Save हो गयी!'); loadShopProfile(); }
 window.rechargeWallet=()=>{ const amt=parseInt(document.getElementById('rechargeAmt').value); if(!amt || amt<10){ alert("कम से कम ₹10 डालो"); return; } var options={ "key": RAZORPAY_KEY, "amount": amt*100, "currency": "INR", "name": "Vyapar Bandhu Wallet", "description": "Wallet Recharge ₹"+amt, "handler": async function(response){ const ref=doc(db,"wallets",userEmail); try{ await updateDoc(ref,{balance: increment(amt)}); }catch(e){ await setDoc(ref,{balance:amt,email:userEmail}); } alert("✅ Recharge Success! ₹"+amt+" Add हो गया"); loadWallet(); }, "prefill": { "email": userEmail }, "theme": { "color": "#ff8f00" } }; var rzp=new Razorpay(options); rzp.open(); }
 window.payAndCreateGST=async()=>{
-  const gname=document.getElementById('gstName').value.trim();
-  const gmobile=document.getElementById('gstMobile').value.trim();
-  const gmail=document.getElementById('gstEmail').value.trim();
-  const gstate=document.getElementById('gstState').value.trim();
-  if(!gname||!gmobile||!gmail){ alert('⚠️ नाम, मोबाइल, Gmail डालो - GST आपके Gmail पर आएगा!'); return; }
-  var options={
-    "key": RAZORPAY_KEY,
-    "amount": 1500*100,
-    "currency": "INR",
-    "name": "Vyapar Bandhu - GST Service",
-    "description": "GST Registration Service Charge ₹1500 (Govt Fee ₹0)",
-    "handler": async function(res){
-      const leadData={ clientName:gname, clientMobile:gmobile, clientEmail:gmail, state:gstate, pan:document.getElementById('gstPanNo').value, legalName:document.getElementById('gstLegal').value, paymentId:res.razorpay_payment_id, amount:1500, owner:userEmail, date:new Date().toLocaleString('hi-IN'), status:'PAID ₹1500 - GOVT FORM OPEN' };
+  const gname=document.getElementById('gstName').value.trim(); const gmobile=document.getElementById('gstMobile').value.trim(); const gmail=document.getElementById('gstEmail').value.trim(); const gstate=document.getElementById('gstState').value.trim();
+  if(!gname||!gmobile||!gmail){ alert('⚠️ नाम, मोबाइल, Gmail डालो!'); return; }
+  var options={ "key": RAZORPAY_KEY, "amount": 1500*100, "currency": "INR", "name": "Vyapar Bandhu - GST Service", "description": "GST Registration Service ₹1500 (Govt Fee ₹0)", "handler": async function(res){
+      const leadData={ clientName:gname, clientMobile:gmobile, clientEmail:gmail, state:gstate, pan:document.getElementById('gstPanNo').value, legalName:document.getElementById('gstLegal').value, paymentId:res.razorpay_payment_id, amount:1500, owner:userEmail, date:new Date().toLocaleString('hi-IN'), status:'PAID ₹1500' };
       await addDoc(collection(db,'gst_leads',userEmail,'leads'), leadData);
-      alert('✅ ₹1500 Payment Success! आपका पैसा आपके Razorpay में आ गया!\n\nअब सीधा सरकारी Form खुलेगा - वहाँ नीचे वाले Hindi Guide से भर दो!');
-      window.open('https://reg.gst.gov.in/registration/','_blank');
-      loadGstLeads();
-    },
-    "prefill": { "email": gmail, "contact": gmobile },
-    "theme": { "color": "#ff8f00" }
-  };
-  var rzp=new Razorpay(options); rzp.open();
+      alert('✅ ₹1500 Success! सरकारी Fees ₹0 है! अब सरकारी Form खुलेगा!');
+      window.open('https://reg.gst.gov.in/registration/','_blank'); loadGstLeads();
+    }, "prefill": { "email": gmail, "contact": gmobile }, "theme": { "color": "#ff8f00" } }; var rzp=new Razorpay(options); rzp.open();
 }
-async function loadGstLeads(){ if(!userEmail) return; const snap=await getDocs(collection(db,'gst_leads',userEmail,'leads')); let html=`<h4 style="margin:5px 0">📋 आपके GST Customers: ${snap.size} - Total कमाई: ₹${snap.size*1500}</h4>`; snap.forEach(d=>{ const g=d.data(); html+=`<div style="border:1px solid #ff8f00;padding:8px;border-radius:8px;margin:5px 0;background:#fff8e1"><b>${g.clientName}</b> - ${g.clientMobile}<br><span style="font-size:11px">${g.clientEmail} | ${g.date}</span><br><span style="font-size:11px;color:green;font-weight:bold">${g.status}</span></div>`; }); document.getElementById('gstLeadsList').innerHTML=html; }
+async function loadGstLeads(){ if(!userEmail) return; const snap=await getDocs(collection(db,'gst_leads',userEmail,'leads')); let html=`<h4 style="margin:5px 0">📋 GST Customers: ${snap.size} - कमाई: ₹${snap.size*1500}</h4>`; snap.forEach(d=>{ const g=d.data(); html+=`<div style="border:1px solid #ff8f00;padding:8px;border-radius:8px;margin:5px 0;background:#fff8e1"><b>${g.clientName}</b> - ${g.clientMobile}<br><span style="font-size:11px">${g.clientEmail} | ${g.date}</span></div>`; }); document.getElementById('gstLeadsList').innerHTML=html; }
 
-// --- AUTO RETURN SYSTEM ADDED ---
 window.calculateReturn=()=>{
   const sale = parseFloat(document.getElementById('retSale').value)||0;
   const purchase = parseFloat(document.getElementById('retPurchase').value)||0;
   if(sale==0){ document.getElementById('retCalcResult').innerHTML='<p style="color:red;text-align:center">पहले Sale डालो या Auto बटन दबाओ!</p>'; return; }
-  const gstOnSale = sale * 0.03;
-  const gstOnPurchase = purchase * 0.03;
-  const netGst = gstOnSale - gstOnPurchase;
-  const totalPayGovt = netGst > 0 ? netGst : 0;
-  document.getElementById('retCalcResult').innerHTML = `
-  <div style="background:#fff8e1;border:2px solid #ff8f00;padding:10px;border-radius:10px;margin-top:8px">
-    <h4 style="margin:0;color:#e65100">📊 आपका GST हिसाब:</h4>
-    <p style="font-size:13px;margin:5px 0">
-    💰 कुल बिक्री: ₹${sale.toLocaleString('en-IN')}<br>
-    ➕ बिक्री पर GST 3%: ₹${gstOnSale.toLocaleString('en-IN')}<br>
-    🛒 कुल खरीद: ₹${purchase.toLocaleString('en-IN')}<br>
-    ➖ खरीद पर Input GST: ₹${gstOnPurchase.toLocaleString('en-IN')}<br><hr>
-    <b style="background:yellow;padding:4px 8px;border-radius:5px;font-size:16px">🏛️ सरकार को भरना है: ₹${totalPayGovt.toLocaleString('en-IN')}</b><br>
-    <span style="font-size:11px;color:green">ये Challan से सरकार के खाते में जाएगा, हमारे पास नहीं!</span><br>
-    <b style="color:#0d47a1">💳 हमारा Service Charge: ₹500</b><br>
-    <b style="color:red">💵 कुल खर्च: ₹${(totalPayGovt+500).toLocaleString('en-IN')}</b>
-    </p>
-  </div>`;
+  const gstOnSale = sale * 0.03; const gstOnPurchase = purchase * 0.03; const netGst = gstOnSale - gstOnPurchase; const totalPayGovt = netGst > 0? netGst : 0;
+  document.getElementById('retCalcResult').innerHTML = `<div style="background:#fff8e1;border:2px solid #ff8f00;padding:10px;border-radius:10px"><h4 style="margin:0;color:#e65100">📊 GST हिसाब:</h4><p style="font-size:13px">💰 बिक्री: ₹${sale.toLocaleString('en-IN')} | GST 3%: ₹${gstOnSale.toLocaleString('en-IN')}<br>🛒 खरीद: ₹${purchase.toLocaleString('en-IN')} | Input: ₹${gstOnPurchase.toLocaleString('en-IN')}<hr><b style="background:yellow;padding:4px 8px;font-size:16px">🏛️ सरकार को: ₹${totalPayGovt.toLocaleString('en-IN')}</b><br><span style="font-size:11px;color:green">Challan से सरकार को जाएगा!</span><br><b style="color:#0d47a1">💳 Service Charge: ₹500</b><br><b style="color:red">💵 कुल: ₹${(totalPayGovt+500).toLocaleString('en-IN')}</b></p></div>`;
 }
+
 window.autoReturnFromHUID=async()=>{
   if(!userEmail) return;
-  document.getElementById('retCalcResult').innerHTML='<p style="text-align:center;color:blue">🔍 HUID Bills से हिसाब जोड़ रहा हूँ...</p>';
+  document.getElementById('retCalcResult').innerHTML='<p style="text-align:center;color:blue">🔍 HUID से हिसाब जोड़ रहा हूँ...</p>';
+  const shopSnap = await getDoc(doc(db,'shops',userEmail));
+  let lastTs = 0;
+  if(shopSnap.exists() && shopSnap.data().lastReturnTs){ lastTs = shopSnap.data().lastReturnTs; }
   const snap = await getDocs(collection(db,'jewellery_bills',userEmail,'bills'));
-  let totalSale = 0; let count = 0;
+  let totalSale = 0; let count = 0; let oldCount = 0;
   snap.forEach(d=>{
     const b = d.data();
-    let w = parseFloat(b.iweight)||0; let r = parseFloat(b.irate)||0;
-    let making = parseFloat((b.imaking||'0').toString().replace('%',''))||0;
-    let goldValue = w * r;
-    let makingValue = (goldValue * making) / 100;
-    totalSale += goldValue + makingValue;
-    count++;
+    const billTs = b.createdAt || 0;
+    if(billTs > lastTs){
+      let w = parseFloat(b.iweight)||0; let r = parseFloat(b.irate)||0; let m = parseFloat((b.imaking||'0').toString().replace('%',''))||0;
+      let goldValue = w * r; let makingValue = (goldValue * m)/100;
+      totalSale += goldValue + makingValue; count++;
+    } else { oldCount++; }
   });
   document.getElementById('retSale').value = Math.round(totalSale);
   const gst = totalSale * 0.03;
-  document.getElementById('retCalcResult').innerHTML = `
-    <div style="background:#e8f5e9;border:2px solid #00c853;padding:10px;border-radius:10px">
-      <h4 style="margin:0;color:#00c853">✅ HUID से Auto हिसाब बन गया!</h4>
-      <p style="font-size:13px;margin:5px 0">
-      📦 कुल HUID Bill: ${count} Bill<br>
-      💰 HUID से कुल बिक्री: ₹${totalSale.toLocaleString('en-IN')}<br>
-      🏛️ सरकार को GST 3%: ₹${gst.toLocaleString('en-IN')}<br>
-      <span style="font-size:11px;color:green">ये हिसाब आपके Live HUID Bills से बना है!</span>
-      </p>
-    </div>`;
+  document.getElementById('retCalcResult').innerHTML = `<div style="background:#e8f5e9;border:2px solid #00c853;padding:10px;border-radius:10px"><h4 style="margin:0;color:#00c853">✅ Auto हिसाब बन गया! (पुराना हिसाब 0)</h4><p style="font-size:13px">📦 पुराने Return वाले Bill: ${oldCount} (0 कर दिया)<br>📦 नए Bill (Last Return के बाद): ${count} Bill<br>💰 नई बिक्री: ₹${totalSale.toLocaleString('en-IN')}<br>🏛️ सरकार को GST: ₹${gst.toLocaleString('en-IN')}<br><span style="font-size:11px;color:green">Last Return के बाद वाला हिसाब ही गिना है!</span></p></div>`;
 }
+
 window.payAndFileReturn=async()=>{
-  const gstin=document.getElementById('retGstin').value.trim().toUpperCase();
-  const retEmail=document.getElementById('retEmail').value.trim();
-  const retMonth=document.getElementById('retMonth').value;
-  const retType=document.getElementById('retType').value;
-  const saleAmt=document.getElementById('retSale').value;
+  const gstin=document.getElementById('retGstin').value.trim().toUpperCase(); const retEmail=document.getElementById('retEmail').value.trim(); const retMonth=document.getElementById('retMonth').value; const retType=document.getElementById('retType').value; const saleAmt=document.getElementById('retSale').value;
   if(!gstin||!retEmail||!retMonth){ alert('⚠️ GSTIN, Email और Month डालो!'); return; }
   var options={ "key": RAZORPAY_KEY, "amount": 500*100, "currency": "INR", "name": "Vyapar Bandhu - GST Return", "description": "Return Service ₹500 - Govt Fee ₹0", "handler": async function(res){
       const data={ gstin, email:retEmail, mobile:document.getElementById('retMobile').value, month:retMonth, type:retType, sale:saleAmt, purchase:document.getElementById('retPurchase').value, paymentId:res.razorpay_payment_id, amount:500, owner:userEmail, date:new Date().toLocaleString('hi-IN'), status:'PAID ₹500' };
       await addDoc(collection(db,'gst_returns',userEmail,'returns'), data);
-      alert('✅ ₹500 Success! ये Service Charge है, सरकारी Fees ₹0 है! अब सरकारी Return Form खुलेगा!\n\nChallan का पैसा सरकार को जाएगा!');
+      await setDoc(doc(db,'shops',userEmail), { lastReturnTs: Date.now(), lastReturnMonth: retMonth, lastReturnDate: new Date().toLocaleString('hi-IN') }, {merge:true});
+      alert('✅ ₹500 Success! Return File हो गया!\n\n✅ पुराना हिसाब अब 0 हो गया!\n✅ नया हिसाब कल से Auto शुरू!\n\nअब सरकारी साइट खुलेगी, Challan का पैसा सरकार को जाएगा!');
       window.open('https://services.gst.gov.in/services/login','_blank');
-      loadReturnLeads();
+      loadReturnLeads(); loadShopProfile();
+      document.getElementById('retSale').value=''; document.getElementById('retPurchase').value=''; document.getElementById('retCalcResult').innerHTML='<p style="text-align:center;color:green">✅ पुराना हिसाब 0! नया हिसाब शुरू!</p>';
     }, "prefill": { "email": retEmail, "contact": document.getElementById('retMobile').value }, "theme": { "color": "#1976d2" } }; var rzp=new Razorpay(options); rzp.open();
 }
 async function loadReturnLeads(){ if(!userEmail) return; const snap=await getDocs(collection(db,'gst_returns',userEmail,'returns')); let html=`<h4 style="margin:5px 0">📊 Return Customers: ${snap.size} - कमाई: ₹${snap.size*500}</h4>`; snap.forEach(d=>{ const r=d.data(); html+=`<div style="border:1px solid #1976d2;padding:8px;border-radius:8px;margin:5px 0;background:#e3f2fd"><b>${r.gstin}</b> - ${r.type} - ${r.month}<br><span style="font-size:11px">Sale: ₹${r.sale||0} | ${r.email} | ${r.date}</span></div>`; }); document.getElementById('returnLeadsList').innerHTML=html; }
 
 window.generateNewHUID=()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } if(walletBalance<20){ alert("⚠️ Wallet Balance कम है! ₹"+walletBalance); return; } let chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let newHuid=''; for(let i=0;i<6;i++) newHuid+=chars[Math.floor(Math.random()*chars.length)]; document.getElementById('ihuid').value=newHuid; document.getElementById('huidStatus').innerHTML='✅ नया HUID: <b style="color:red;font-size:20px">'+newHuid+'</b><br><span style="color:green">अब Save करो, तब ₹20 कटेगा</span>'; }
-window.saveBill=async()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } const huid=document.getElementById('ihuid').value.trim().toUpperCase(); if(!huid){alert('HUID बनाओ!');return} const karat=document.getElementById('ikarat').value; if(!karat){alert('कैरेट Select करो!');return} if(walletBalance<20){ alert("Balance कम है!"); return; } const file=document.getElementById('iphoto').files[0]; let photo=''; if(file) photo=await toBase64(file); let makingRaw = document.getElementById('imaking').value.replace('%','').trim(); const data={ cname:cname.value, caddress:caddress.value, cmobile:cmobile.value, iname:iname.value, iweight:iweight.value, irate:irate.value, imaking:makingRaw, huid:huid, hallmark:ihallmark.value, karat:karat, shopName:shopProfile.shopName, shopMobile:shopProfile.shopMobile, shopAddress:shopProfile.shopAddress, shopGst:shopProfile.shopGst, shopTin:shopProfile.shopTin, shopLogo:shopProfile.logo, photo:photo, date:new Date().toLocaleString('hi-IN'), owner:userEmail }; await setDoc(doc(db,'jewellery_bills',userEmail,'bills',huid), data); const ref=doc(db,"wallets",userEmail); try{ await updateDoc(ref,{balance: increment(-20)}); }catch(e){ await setDoc(ref,{balance:walletBalance-20,email:userEmail}); } walletBalance-=20; document.getElementById('walletBal').innerText="₹"+walletBalance; document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance; alert('✅ Save! ₹20 kat gaya!'); document.getElementById('ihuid').value=''; document.getElementById('huidStatus').innerHTML=''; loadAll(); }
+window.saveBill=async()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } const huid=document.getElementById('ihuid').value.trim().toUpperCase(); if(!huid){alert('HUID बनाओ!');return} const karat=document.getElementById('ikarat').value; if(!karat){alert('कैरेट Select करो!');return} if(walletBalance<20){ alert("Balance कम है!"); return; } const file=document.getElementById('iphoto').files[0]; let photo=''; if(file) photo=await toBase64(file); let makingRaw = document.getElementById('imaking').value.replace('%','').trim(); const data={ cname:cname.value, caddress:caddress.value, cmobile:cmobile.value, iname:iname.value, iweight:iweight.value, irate:irate.value, imaking:makingRaw, huid:huid, hallmark:ihallmark.value, karat:karat, shopName:shopProfile.shopName, shopMobile:shopProfile.shopMobile, shopAddress:shopProfile.shopAddress, shopGst:shopProfile.shopGst, shopTin:shopProfile.shopTin, shopLogo:shopProfile.logo, photo:photo, date:new Date().toLocaleString('hi-IN'), createdAt: Date.now(), owner:userEmail }; await setDoc(doc(db,'jewellery_bills',userEmail,'bills',huid), data); const ref=doc(db,"wallets",userEmail); try{ await updateDoc(ref,{balance: increment(-20)}); }catch(e){ await setDoc(ref,{balance:walletBalance-20,email:userEmail}); } walletBalance-=20; document.getElementById('walletBal').innerText="₹"+walletBalance; document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance; alert('✅ Save! ₹20 kat gaya!'); document.getElementById('ihuid').value=''; document.getElementById('huidStatus').innerHTML=''; loadAll(); }
 window.searchBill=async()=>{ try{ let qText = ""; const s1 = document.getElementById('search'); const s2 = document.getElementById('search2'); if(s1 && s1.value.trim()!="") qText = s1.value.trim().toUpperCase(); else if(s2 && s2.value.trim()!="") qText = s2.value.trim().toUpperCase(); if(!qText){ alert('पहले HUID डालो!'); return; } const resultDiv = document.getElementById('result'); const resultMainDiv = document.getElementById('resultMain'); if(resultDiv) resultDiv.innerHTML='<p style="text-align:center;color:blue">🔍 '+qText+' Search ho raha hai...</p>'; if(resultMainDiv) resultMainDiv.innerHTML='<p style="text-align:center;color:blue">🔍 '+qText+' Search ho raha hai...</p>'; const q=query(collectionGroup(db,'bills'), where('huid','==',qText)); const snap=await getDocs(q); render(snap); if(snap.empty){ if(resultDiv) resultDiv.innerHTML='<p style="text-align:center;color:red">❌ '+qText+' का कोई Bill नहीं मिला</p>'; } }catch(err){ alert("Search Error: "+err.message); } }
 window.loadAll=async()=>{ if(!userEmail) return; const snap=await getDocs(collection(db,'jewellery_bills',userEmail,'bills')); render(snap, true); }
 function render(snap, isMain=false){ let html=''; snap.forEach(d=>{ const b=d.data(); let cleanMaking = (b.imaking||'').toString().replace(/%/g,''); const karatBadge = b.karat? `<span style="background:#ff8f00;color:white;padding:3px 10px;border-radius:15px;font-size:12px;display:inline-block;white-space:nowrap">${b.karat}</span>` : ''; const shopHead = b.shopName? `<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;padding:8px;border-radius:8px;margin-bottom:8px;border:2px solid #ff8f00"><img src="${b.shopLogo||'logo.png'}" style="width:40px;height:40px;border-radius:50%;object-fit:cover"><div><b style="color:#e65100">${b.shopName}</b><br><span style="font-size:11px">📞 ${b.shopMobile}<br>📍 ${b.shopAddress||''}<br>GST: ${b.shopGst||'N/A'}</span></div></div>` : ''; let w = parseFloat(b.iweight) || 0; let r = parseFloat(b.irate) || 0; let mPercent = parseFloat(cleanMaking) || 0; let goldValue = w * r; let makingValue = (goldValue * mPercent) / 100; let gstGold = goldValue * 0.03; let gstMaking = makingValue * 0.05; let totalGst = gstGold + gstMaking; let total = goldValue + makingValue + totalGst; html+=`<div class="bill">${shopHead}${b.photo?`<img src="${b.photo}">`:''}<h3>💎 ${b.iname} - ${b.iweight} ${karatBadge}</h3><p><b>ग्राहक:</b> ${b.cname} | ${b.cmobile}<br><b>HUID:</b> <span style="color:red;font-size:20px">${b.huid}</span><br><b>कैरेट:</b> ${b.karat||''}<br><b>वजन:</b> ${b.iweight}<br><b>सोने का रेट:</b> ₹${b.irate}<br><hr><b>सोने का दाम:</b> ₹${goldValue.toLocaleString('en-IN')}<br><b>Making:</b> ${cleanMaking}% = ₹${makingValue.toLocaleString('en-IN')}<br><b>Total GST:</b> ₹${totalGst.toLocaleString('en-IN')}<br><b style="font-size:18px;background:yellow;padding:3px 8px;border-radius:5px">💰 Total: ₹${total.toLocaleString('en-IN')}</b></p></div>`; }); const el = isMain? document.getElementById('resultMain') : document.getElementById('result'); if(el) el.innerHTML=html||'<p style="text-align:center;color:red">❌ कोई Bill नहीं मिला</p>'; if(!isMain && document.getElementById('resultMain') && html) document.getElementById('resultMain').innerHTML=html; }
@@ -126,7 +89,7 @@ function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); 
 <style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:0}.top-banner{background:linear-gradient(135deg,#ff8f00 0%,#ff6f00 50%,#e65100 100%);color:white;padding:18px 12px;text-align:center;}.top-banner h1{margin:0;font-size:18px}.main-content{padding:12px}.card{background:white;padding:14px;border-radius:14px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:14px}input,select{width:100%;padding:11px;margin:5px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:13px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:8px;cursor:pointer}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.btn-blue{background:linear-gradient(45deg,#1976d2,#0d47a1)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:10px;margin-top:10px;background:white}.bill img{width:100%;max-height:220px;object-fit:contain}.wallet{background:linear-gradient(135deg,#00c853,#009624);color:white;padding:14px;border-radius:14px;margin-bottom:14px;text-align:center}.search-row{display:flex;gap:8px;align-items:center}.gst-card{border:3px solid #e65100;background:linear-gradient(180deg,#fff8f0,#ffffff)}.return-card{border:3px solid #1976d2;background:linear-gradient(180deg,#e3f2fd,#ffffff)}.guide-box{background:#e3f2fd;border:2px solid #1976d2;border-radius:10px;padding:12px;margin:10px 0}.guide-box h4{margin:5px 0;color:#0d47a1}.highlight{background:yellow;padding:2px 6px;border-radius:4px;font-weight:bold}</style>
 </head>
 <body>
-<div class="top-banner"><h1>💎 VYAPAR BANDHU HUID + GST SERVICE</h1><p>RAJISTARD BILLING • MADE IN BIHAR</p></div>
+<div class="top-banner"><h1>💎 VYAPAR BANDHU AUTO RESET</h1><p>HUID + GST + RETURN AUTO 0</p></div>
 <div class="main-content">
 <h2 style="text-align:center;margin:8px 0">💎 Vyapar Bandhu - All Set 💎</h2>
 <div id="loginBox" class="card" style="text-align:center">
@@ -139,56 +102,29 @@ function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); 
   <div id="shopDisplay" class="card" style="padding:10px"></div>
   <div id="shopSetupCard" class="card" style="border:3px solid #1976d2"><h3 style="margin-top:0;color:#0d47a1">🏪 दुकान Setup</h3><input id="sname" placeholder="🏪 दुकान का नाम *"><input id="smobile" placeholder="📞 मोबाइल *"><input id="saddress" placeholder="📍 पता"><input id="sgst" placeholder="📄 GST No."><input id="stin" placeholder="🧾 TIN"><input type="file" id="slogo" accept="image/*"><button class="btn-blue" onclick="saveShopProfile()">💾 Save</button></div>
   <div class="wallet"><h3 style="margin:0">💰 Wallet Balance</h3><h1 id="walletBal" style="font-size:32px;margin:5px 0">₹0</h1><div style="display:flex;gap:8px;margin-top:8px;background:white;border-radius:10px;padding:5px"><input id="rechargeAmt" type="number" placeholder="100" style="flex:1;margin:0;border:none;color:black"><button onclick="rechargeWallet()" style="width:90px;margin:0;background:black">Recharge</button></div></div>
-  
   <div class="card gst-card">
     <h2 style="margin:0;color:#e65100;text-align:center">🆕 नया GST बनवाएं - ₹1500 में</h2>
-    <p style="text-align:center;font-size:12px;background:yellow;padding:6px;border-radius:8px"><b>सरकारी Fees ₹0 है! ₹1500 हमारा Service Charge है - Form भरने और Guide करने का!</b><br>GST आपके ही Gmail पर आएगा!</p>
-    <input id="gstName" placeholder="👤 आपका पूरा नाम *">
-    <input id="gstMobile" placeholder="📞 Mobile Number *">
-    <input id="gstEmail" placeholder="📧 Gmail * (इसी पर GST आएगा)">
-    <input id="gstLegal" placeholder="🏪 दुकान / Business का नाम (PAN वाला नाम)">
-    <input id="gstPanNo" placeholder="PAN Number - ABCDE1234F">
-    <input id="gstState" placeholder="State - Bihar">
+    <p style="text-align:center;font-size:12px;background:yellow;padding:6px;border-radius:8px"><b>सरकारी Fees ₹0 है! ₹1500 हमारा Service Charge है!</b><br>GST आपके ही Gmail पर आएगा!</p>
+    <input id="gstName" placeholder="👤 आपका पूरा नाम *"><input id="gstMobile" placeholder="📞 Mobile *"><input id="gstEmail" placeholder="📧 Gmail *"><input id="gstLegal" placeholder="🏪 दुकान / Business नाम"><input id="gstPanNo" placeholder="PAN - ABCDE1234F"><input id="gstState" placeholder="State - Bihar">
     <button class="btn-green" onclick="payAndCreateGST()" style="font-size:18px;padding:15px">💰 ₹1500 Pay करो और GST Form खोलो</button>
-    <div id="gstGuide" style="display:block;margin-top:12px">
-      <h3 style="text-align:center;color:#e65100">📖 सरकारी Form कैसे भरना है - Hindi Guide (अब हमेशा दिखेगा)</h3>
-      <div class="guide-box">
-        <h4>1️⃣ I am a * (आप कौन हो?)</h4><p>👉 <span class="highlight">Taxpayer</span> Select करो</p>
-        <h4>2️⃣ State / UT * (राज्य)</h4><p>👉 <span class="highlight">Bihar</span> Select करो</p>
-        <h4>3️⃣ District (जिला)</h4><p>👉 <span class="highlight">Rohtas / Dehri</span> Select करो</p>
-        <h4>4️⃣ Legal Name * (PAN वाला नाम)</h4><p>👉 PAN Card पर जो नाम लिखा है वही लिखो</p>
-        <h4>5️⃣ PAN *</h4><p>👉 आपका PAN Number डालो</p>
-        <h4>6️⃣ Email Address *</h4><p>👉 आपका Gmail ID डालो - OTP और GST इसी पर आएगा!</p>
-        <h4>7️⃣ Mobile Number *</h4><p>👉 आपका Mobile Number डालो - OTP आएगा!</p>
-        <h4>8️⃣ PROCEED</h4><p>👉 सब भरके PROCEED दबाओ - TRN Number मिलेगा!</p>
-      </div>
-    </div>
+    <div id="gstGuide" style="display:block;margin-top:12px"><h3 style="text-align:center;color:#e65100">📖 Hindi Guide - हमेशा दिखेगा</h3><div class="guide-box"><h4>1️⃣ I am a *</h4><p>👉 <span class="highlight">Taxpayer</span></p><h4>2️⃣ State</h4><p>👉 <span class="highlight">Bihar</span></p><h4>3️⃣ District</h4><p>👉 <span class="highlight">Rohtas</span></p><h4>4️⃣ Legal Name</h4><p>👉 PAN वाला नाम</p><h4>5️⃣ PAN</h4><p>👉 PAN Number</p><h4>6️⃣ Email</h4><p>👉 Gmail</p><h4>7️⃣ Mobile</h4><p>👉 Mobile</p><h4>8️⃣ PROCEED</h4><p>👉 TRN मिलेगा!</p></div></div>
     <div id="gstLeadsList" style="margin-top:10px"></div>
   </div>
-
-  <!-- RETURN FILING CARD - NEW ADDED -->
   <div class="card return-card">
-    <h2 style="margin:0;color:#0d47a1;text-align:center">📊 GST Return File - ₹500 में</h2>
-    <p style="text-align:center;font-size:12px;background:#bbdefb;padding:6px;border-radius:8px"><b>सरकारी Fees ₹0 है! ₹500 हमारा Service Charge है!</b><br>Return FREE में भरता है, दुकानदार खुद भी भर सकता है! पर Form English में है इसलिए हम भर देंगे!<br><b>असली GST Tax (Ex: ₹30,000) Challan से सरकार को जाएगा, हमारे पास नहीं!</b></p>
-    
+    <h2 style="margin:0;color:#0d47a1;text-align:center">📊 GST Return File - ₹500 + AUTO RESET</h2>
+    <p style="text-align:center;font-size:12px;background:#bbdefb;padding:6px;border-radius:8px"><b>सरकारी Fees ₹0 है! ₹500 Service Charge!</b><br>Return File करते ही पुराना हिसाब Auto 0 हो जाएगा, नया हिसाब Auto शुरू!</p>
     <div style="background:#fff8e1;border:2px solid #ff8f00;padding:10px;border-radius:10px;margin:10px 0">
-      <h4 style="margin:0;color:#e65100">🧮 Return Calculator</h4>
-      <button onclick="autoReturnFromHUID()" style="background:linear-gradient(45deg,#00c853,#009624);font-size:15px">🤖 HUID Bills से Auto हिसाब बनाओ - एक क्लिक में!</button>
-      <input id="retSale" type="number" placeholder="💰 इस महीने कितना बेचा? Ex: 1000000">
-      <input id="retPurchase" type="number" placeholder="🛒 इस महीने कितना खरीदा? Ex: 800000">
-      <button onclick="calculateReturn()" style="background:#ff8f00">🧮 हिसाब निकालो - कितना GST सरकार को?</button>
+      <h4 style="margin:0;color:#e65100">🧮 Auto Calculator + Auto Reset</h4>
+      <button onclick="autoReturnFromHUID()" style="background:linear-gradient(45deg,#00c853,#009624);font-size:15px">🤖 HUID Bills से Auto हिसाब बनाओ (पुराना 0, नया जोड़ो)</button>
+      <input id="retSale" type="number" placeholder="💰 इस महीने कितना बेचा? Auto से भर जाएगा">
+      <input id="retPurchase" type="number" placeholder="🛒 कितना खरीदा?">
+      <button onclick="calculateReturn()" style="background:#ff8f00">🧮 हिसाब निकालो</button>
       <div id="retCalcResult"></div>
     </div>
-
-    <input id="retGstin" placeholder="📄 GSTIN - 22AAAAA0000A1Z5 *">
-    <input id="retEmail" placeholder="📧 Gmail *">
-    <input id="retMobile" placeholder="📞 Mobile *">
-    <select id="retType"><option value="GSTR-3B - Monthly">GSTR-3B - Monthly (हर महीना)</option><option value="GSTR-1 - Monthly">GSTR-1 - बिक्री वाला</option><option value="GSTR-1 - Quarterly">GSTR-1 Quarterly</option><option value="GSTR-9 - Yearly">GSTR-9 Yearly</option></select>
-    <select id="retMonth"><option value="">-- महीना / साल चुनो --</option><option>January 2026</option><option>February 2026</option><option>March 2026</option><option>April 2026</option><option>May 2026</option><option>June 2026</option><option>July 2026</option><option>August 2026</option><option>September 2026</option><option>October 2026</option><option>November 2026</option><option>December 2026</option><option>FY 2024-25 Yearly</option></select>
-    <button class="btn-blue" onclick="payAndFileReturn()" style="font-size:17px;padding:15px">💳 ₹500 Pay करो और Return File करो</button>
+    <input id="retGstin" placeholder="📄 GSTIN *"><input id="retEmail" placeholder="📧 Gmail *"><input id="retMobile" placeholder="📞 Mobile *"><select id="retType"><option>GSTR-3B - Monthly</option><option>GSTR-1 - Monthly</option><option>GSTR-1 Quarterly</option><option>GSTR-9 Yearly</option></select><select id="retMonth"><option value="">-- महीना चुनो --</option><option>January 2026</option><option>February 2026</option><option>March 2026</option><option>April 2026</option><option>May 2026</option><option>June 2026</option><option>July 2026</option><option>August 2026</option><option>September 2026</option><option>October 2026</option><option>November 2026</option><option>December 2026</option><option>FY 2024-25</option><option>FY 2025-26</option></select>
+    <button class="btn-blue" onclick="payAndFileReturn()" style="font-size:17px;padding:15px">💳 ₹500 Pay करो - Return File + पुराना हिसाब 0</button>
     <div id="returnLeadsList" style="margin-top:10px"></div>
   </div>
-
   <button onclick="logout()" style="background:#333">Logout</button>
   <div class="search-row" style="margin-top:12px"><input id="search2" placeholder="🔍 HUID Search" style="flex:1;margin:0"><button onclick="searchBill()" style="width:90px;margin:0;background:#1976d2">Search</button></div>
   <div class="card"><h3>नया Bill - <span id="walletBal2" style="color:green">Balance: ₹0</span></h3><input id="cname" placeholder="ग्राहक नाम"><input id="caddress" placeholder="पता"><input id="cmobile" placeholder="मोबाइल"><input id="iname" placeholder="सामान"><input id="iweight" placeholder="वजन"><select id="ikarat" style="background:#fff8e1;font-weight:bold"><option value="">-- कैरेट Select --</option><option value="24K (999)">24K (999)</option><option value="22K (916)">22K (916)</option><option value="20K (833)">20K (833)</option><option value="18K (750)">18K (750)</option></select><input id="irate" placeholder="रेट"><input id="imaking" placeholder="Making %"><input id="ihuid" placeholder="HUID" readonly style="background:#fff3cd;font-weight:bold"><button class="btn-green" onclick="generateNewHUID()">✨ नया HUID बनाओ (₹20)</button><p id="huidStatus"></p><input id="ihallmark" placeholder="Hallmark"><input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()">💾 Save</button></div>
