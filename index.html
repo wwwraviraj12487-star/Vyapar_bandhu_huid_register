@@ -17,16 +17,7 @@ const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 const RAZORPAY_KEY = "rzp_live_TSSLcwOZn8V7er";
 let userEmail=null; let walletBalance=0; let shopProfile=null;
-
-// FIX: Popup use karo, Redirect nahi - yehi error thik karega
-window.login=async()=>{
-  try{
-    const result = await signInWithPopup(auth, provider);
-    console.log("Login OK", result.user.email);
-  }catch(e){
-    alert("Popup Block hai! Upar Allow dabao - "+e.message);
-  }
-}
+window.login=async()=>{ try{ const result = await signInWithPopup(auth, provider); }catch(e){ alert("Popup Block: "+e.message); } }
 window.logout=()=>signOut(auth).then(()=>location.reload());
 onAuthStateChanged(auth,async(u)=>{ if(u){ userEmail=u.email; document.getElementById('loginBox').style.display='none'; document.getElementById('mainBox').style.display='block'; document.getElementById('userEmail').innerText='Login: '+userEmail; await loadWallet(); await loadShopProfile(); loadAll(); loadGstLeads(); loadReturnLeads(); } else{ document.getElementById('loginBox').style.display='block'; document.getElementById('mainBox').style.display='none'; } });
 async function loadWallet(){ const ref=doc(db,"wallets",userEmail); const snap=await getDoc(ref); if(snap.exists()){ walletBalance=snap.data().balance||0; } else { await setDoc(ref,{balance:0,email:userEmail}); walletBalance=0; } document.getElementById('walletBal').innerText="₹"+walletBalance; document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance; }
@@ -44,10 +35,33 @@ window.generateNewHUID=()=>{ if(!shopProfile){ alert("⚠️ पहले दु
 window.saveBill=async()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } const huid=document.getElementById('ihuid').value.trim().toUpperCase(); if(!huid){alert('HUID बनाओ!');return} if(walletBalance<20){ alert("Balance कम है!"); return; } const file=document.getElementById('iphoto').files[0]; let photo=''; if(file) photo=await toBase64(file); let makingRaw = document.getElementById('imaking').value.replace('%','').trim(); const data={ cname:cname.value, caddress:caddress.value, cmobile:cmobile.value, iname:iname.value, iweight:iweight.value, irate:irate.value, imaking:makingRaw, huid:huid, hallmark:ihallmark.value, karat:ikarat.value, shopName:shopProfile.shopName, shopMobile:shopProfile.shopMobile, shopAddress:shopProfile.shopAddress, shopGst:shopProfile.shopGst, shopLogo:shopProfile.logo, photo:photo, date:new Date().toLocaleString('hi-IN'), createdAt: Date.now(), owner:userEmail }; await setDoc(doc(db,'jewellery_bills',userEmail,'bills',huid), data); const ref=doc(db,"wallets",userEmail); try{ await updateDoc(ref,{balance: increment(-20)}); }catch(e){ await setDoc(ref,{balance:walletBalance-20,email:userEmail}); } walletBalance-=20; document.getElementById('walletBal').innerText="₹"+walletBalance; document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance; alert('✅ Save! ₹20 kat gaya!'); loadAll(); }
 window.searchBill=async()=>{ let qText = (document.getElementById('search')?.value || document.getElementById('search2')?.value || "").trim().toUpperCase(); if(!qText){ alert('HUID डालो!'); return; } const q=query(collectionGroup(db,'bills'), where('huid','==',qText)); const snap=await getDocs(q); render(snap); }
 window.loadAll=async()=>{ if(!userEmail) return; const snap=await getDocs(collection(db,'jewellery_bills',userEmail,'bills')); render(snap, true); }
-function render(snap, isMain=false){ let html=''; snap.forEach(d=>{ const b=d.data(); let cleanMaking = (b.imaking||'').toString().replace(/%/g,''); const karatBadge = b.karat? `<span style="background:#ff8f00;color:white;padding:3px 10px;border-radius:15px;font-size:12px">${b.karat}</span>` : ''; html+=`<div class="bill"><h3>💎 ${b.iname} - ${b.iweight} ${karatBadge}</h3><p><b>HUID:</b> <span style="color:red;font-size:20px">${b.huid}</span><br><b>ग्राहक:</b> ${b.cname}</p></div>`; }); const el = isMain? document.getElementById('resultMain') : document.getElementById('result'); if(el) el.innerHTML=html||'<p style="text-align:center;color:red">❌ कोई Bill नहीं मिला</p>'; }
+
+// YAHI FIX KIYA HAI MALIK - PURA BILL PHOTO KE SAATH
+function render(snap, isMain=false){
+let html='';
+snap.forEach(d=>{
+const b=d.data();
+let cleanMaking = (b.imaking||'').toString().replace(/%/g,'');
+const karatBadge = b.karat? `<span style="background:#ff8f00;color:white;padding:3px 10px;border-radius:15px;font-size:12px;display:inline-block;white-space:nowrap">${b.karat}</span>` : '';
+const shopHead = b.shopName? `<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;padding:8px;border-radius:8px;margin-bottom:8px;border:2px solid #ff8f00"><img src="${b.shopLogo||'logo.png'}" style="width:40px;height:40px;border-radius:50%;object-fit:cover"><div><b style="color:#e65100">${b.shopName}</b><br><span style="font-size:11px">📞 ${b.shopMobile}<br>📍 ${b.shopAddress||''}<br>GST: ${b.shopGst||'N/A'}</span></div></div>` : '';
+let w = parseFloat(b.iweight) || 0;
+let r = parseFloat(b.irate) || 0;
+let mPercent = parseFloat(cleanMaking) || 0;
+let goldValue = w * r;
+let makingValue = (goldValue * mPercent) / 100;
+let gstGold = goldValue * 0.03;
+let gstMaking = makingValue * 0.05;
+let totalGst = gstGold + gstMaking;
+let total = goldValue + makingValue + totalGst;
+html+=`<div class="bill">${shopHead}${b.photo?`<img src="${b.photo}" style="width:100%;max-height:250px;object-fit:contain;border-radius:10px;border:1px solid #ffb300;margin-bottom:8px">`:''}<h3>💎 ${b.iname} - ${b.iweight} ${karatBadge}</h3><p><b>ग्राहक:</b> ${b.cname} | ${b.cmobile}<br><b>पता:</b> ${b.caddress||''}<br><b>HUID:</b> <span style="color:red;font-size:22px;font-weight:bold">${b.huid}</span><br><b>कैरेट:</b> ${b.karat||''}<br><b>Hallmark:</b> ${b.hallmark||''}<br><b>वजन:</b> ${b.iweight}<br><b>सोने का रेट:</b> ₹${b.irate}<br><hr><b>सोने का दाम:</b> ₹${goldValue.toLocaleString('en-IN')}<br><b>Making:</b> ${cleanMaking}% = ₹${makingValue.toLocaleString('en-IN')}<br><b>Total GST (3% + 5%):</b> ₹${totalGst.toLocaleString('en-IN')}<br><b style="font-size:19px;background:yellow;padding:4px 10px;border-radius:6px;display:inline-block;margin-top:6px">💰 Total: ₹${total.toLocaleString('en-IN')}</b><br><span style="font-size:11px;color:gray">${b.date||''}</span></p></div>`;
+});
+const el = isMain? document.getElementById('resultMain') : document.getElementById('result');
+if(el) el.innerHTML=html||'<p style="text-align:center;color:red">❌ कोई Bill नहीं मिला</p>';
+if(!isMain && document.getElementById('resultMain') && html) document.getElementById('resultMain').innerHTML=html;
+}
 function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.readAsDataURL(f); r.onload=()=>res(r.result); r.onerror=rej; }); }
 </script>
-<style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:0}.top-banner{background:linear-gradient(135deg,#ff8f00,#e65100);color:white;padding:18px 12px;text-align:center}.main-content{padding:12px}.card{background:white;padding:14px;border-radius:14px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:14px}input,select{width:100%;padding:11px;margin:5px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:13px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:8px;cursor:pointer}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.btn-blue{background:linear-gradient(45deg,#1976d2,#0d47a1)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:10px;margin-top:10px;background:white}.wallet{background:linear-gradient(135deg,#00c853,#009624);color:white;padding:14px;border-radius:14px;margin-bottom:14px;text-align:center}.search-row{display:flex;gap:8px;align-items:center}.gst-card{border:3px solid #e65100}.return-card{border:3px solid #1976d2}</style>
+<style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:0}.top-banner{background:linear-gradient(135deg,#ff8f00,#e65100);color:white;padding:18px 12px;text-align:center}.main-content{padding:12px}.card{background:white;padding:14px;border-radius:14px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:14px}input,select{width:100%;padding:11px;margin:5px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:13px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:8px;cursor:pointer}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.btn-blue{background:linear-gradient(45deg,#1976d2,#0d47a1)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:10px;margin-top:10px;background:white}.bill img{width:100%;max-height:220px;object-fit:contain}.wallet{background:linear-gradient(135deg,#00c853,#009624);color:white;padding:14px;border-radius:14px;margin-bottom:14px;text-align:center}.search-row{display:flex;gap:8px;align-items:center}.gst-card{border:3px solid #e65100}.return-card{border:3px solid #1976d2}</style>
 </head>
 <body>
 <div class="top-banner"><h1>💎 VYAPAR BANDHU AUTO RESET</h1><p>HUID + GST + RETURN AUTO 0</p></div>
@@ -67,7 +81,7 @@ function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); 
   <div class="card return-card"><h2 style="text-align:center;color:#0d47a1">📊 GST Return File - ₹500 + AUTO RESET</h2><button onclick="autoReturnFromHUID()" style="background:linear-gradient(45deg,#00c853,#009624)">🤖 HUID से Auto हिसाब बनाओ (पुराना 0)</button><input id="retSale" type="number" placeholder="💰 बेचा?"><input id="retPurchase" type="number" placeholder="🛒 खरीदा?"><button onclick="calculateReturn()" style="background:#ff8f00">🧮 हिसाब निकालो</button><div id="retCalcResult"></div><input id="retGstin" placeholder="📄 GSTIN *"><input id="retEmail" placeholder="📧 Gmail *"><input id="retMobile" placeholder="📞 Mobile *"><select id="retType"><option>GSTR-3B - Monthly</option><option>GSTR-1 - Monthly</option></select><select id="retMonth"><option value="">-- महीना चुनो --</option><option>August 2026</option><option>September 2026</option></select><button class="btn-blue" onclick="payAndFileReturn()">💳 ₹500 Pay करो - Return File</button><div id="returnLeadsList"></div></div>
   <button onclick="logout()" style="background:#333">Logout</button>
   <div class="search-row" style="margin-top:12px"><input id="search2" placeholder="🔍 HUID Search" style="flex:1;margin:0"><button onclick="searchBill()" style="width:90px;margin:0;background:#1976d2">Search</button></div>
-  <div class="card"><h3>नया Bill - <span id="walletBal2">Balance: ₹0</span></h3><input id="cname" placeholder="ग्राहक नाम"><input id="caddress" placeholder="पता"><input id="cmobile" placeholder="मोबाइल"><input id="iname" placeholder="सामान"><input id="iweight" placeholder="वजन"><select id="ikarat"><option value="">-- कैरेट --</option><option value="24K (999)">24K (999)</option><option value="22K (916)">22K (916)</option></select><input id="irate" placeholder="रेट"><input id="imaking" placeholder="Making %"><input id="ihuid" placeholder="HUID" readonly style="background:#fff3cd"><button class="btn-green" onclick="generateNewHUID()">✨ नया HUID बनाओ (₹20)</button><p id="huidStatus"></p><input id="ihallmark" placeholder="Hallmark"><input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()">💾 Save</button></div>
+  <div class="card"><h3>नया Bill - <span id="walletBal2">Balance: ₹0</span></h3><input id="cname" placeholder="ग्राहक नाम"><input id="caddress" placeholder="पता"><input id="cmobile" placeholder="मोबाइल"><input id="iname" placeholder="सामान"><input id="iweight" placeholder="वजन"><select id="ikarat"><option value="">-- कैरेट --</option><option value="24K (999)">24K (999)</option><option value="22K (916)">22K (916)</option><option value="20K (833)">20K (833)</option><option value="18K (750)">18K (750)</option></select><input id="irate" placeholder="रेट"><input id="imaking" placeholder="Making %"><input id="ihuid" placeholder="HUID" readonly style="background:#fff3cd"><button class="btn-green" onclick="generateNewHUID()">✨ नया HUID बनाओ (₹20)</button><p id="huidStatus"></p><input id="ihallmark" placeholder="Hallmark"><input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()">💾 Save</button></div>
   <div id="resultMain"></div>
 </div>
 </div>
