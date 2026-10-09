@@ -2,7 +2,7 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vyapar Bandhu ULTIMATE AUTO RESET</title>
+<title>Vyapar Bandhu ULTIMATE AUTO RESET - Sona Chandi</title>
 <link rel="icon" type="image/png" href="logo.png">
 <meta name="theme-color" content="#ff8f00">
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
@@ -31,9 +31,54 @@ window.calculateReturn=()=>{ const sale = parseFloat(document.getElementById('re
 window.autoReturnFromHUID=async()=>{ if(!userEmail) return; document.getElementById('retCalcResult').innerHTML='<p style="text-align:center;color:blue">🔍 Smart Code से हिसाब जोड़ रहा हूँ...</p>'; const shopSnap = await getDoc(doc(db,'shops',userEmail)); let lastTs = 0; if(shopSnap.exists() && shopSnap.data().lastReturnTs){ lastTs = shopSnap.data().lastReturnTs; } const snap = await getDocs(collection(db,'jewellery_bills',userEmail,'bills')); let totalSale = 0; let count = 0; let oldCount = 0; snap.forEach(d=>{ const b = d.data(); const billTs = b.createdAt || 0; if(billTs > lastTs){ let w = parseFloat(b.iweight)||0; let r = parseFloat(b.irate)||0; let m = parseFloat((b.imaking||'0').toString().replace('%',''))||0; let goldValue = w * r; let makingValue = (goldValue * m)/100; totalSale += goldValue + makingValue; count++; } else { oldCount++; } }); document.getElementById('retSale').value = Math.round(totalSale); const gst = totalSale * 0.03; document.getElementById('retCalcResult').innerHTML = `<div style="background:#e8f5e9;border:2px solid #00c853;padding:10px;border-radius:10px"><h4 style="margin:0;color:#00c853">✅ Auto हिसाब बन गया! (पुराना हिसाब 0)</h4><p style="font-size:13px">पुराने Bill: ${oldCount} | नए Bill: ${count}<br>💰 बिक्री: ₹${totalSale.toLocaleString('en-IN')}<br>🏛️ GST: ₹${gst.toLocaleString('en-IN')}</p></div>`; }
 window.payAndFileReturn=async()=>{ const gstin=document.getElementById('retGstin').value.trim().toUpperCase(); const retEmail=document.getElementById('retEmail').value.trim(); const retMonth=document.getElementById('retMonth').value; const retType=document.getElementById('retType').value; const saleAmt=document.getElementById('retSale').value; if(!gstin||!retEmail||!retMonth){ alert('⚠️ GSTIN, Email और Month डालो!'); return; } var options={ "key": RAZORPAY_KEY, "amount": 500*100, "currency": "INR", "name": "Vyapar Bandhu - GST Return Assistance", "description": "Return Assistance Service ₹500", "handler": async function(res){ const data={ gstin, email:retEmail, mobile:document.getElementById('retMobile').value, month:retMonth, type:retType, sale:saleAmt, purchase:document.getElementById('retPurchase').value, paymentId:res.razorpay_payment_id, amount:500, owner:userEmail, date:new Date().toLocaleString('hi-IN'), status:'PAID ₹500' }; await addDoc(collection(db,'gst_returns',userEmail,'returns'), data); await setDoc(doc(db,'shops',userEmail), { lastReturnTs: Date.now(), lastReturnMonth: retMonth }, {merge:true}); alert('✅ ₹500 Success! Return Assistance Done! पुराना हिसाब 0!'); window.open('https://services.gst.gov.in/services/login','_blank'); loadReturnLeads(); loadShopProfile(); }, "prefill": { "email": retEmail, "contact": document.getElementById('retMobile').value }, "theme": { "color": "#1976d2" } }; var rzp=new Razorpay(options); rzp.open(); }
 async function loadReturnLeads(){ if(!userEmail) return; const snap=await getDocs(collection(db,'gst_returns',userEmail,'returns')); let html=`<h4>📊 Return Customers: ${snap.size} - कमाई: ₹${snap.size*500}</h4>`; snap.forEach(d=>{ const r=d.data(); html+=`<div style="border:1px solid #1976d2;padding:8px;border-radius:8px;margin:5px 0;background:#e3f2fd"><b>${r.gstin}</b> - ${r.month}</div>`; }); document.getElementById('returnLeadsList').innerHTML=html; }
-// SAFE VERSION - HUID शब्द हटाया, Smart Code बनाया
+window.updateMetalType=()=>{
+  const metal = document.getElementById('imetal').value;
+  const karatSelect = document.getElementById('ikarat');
+  const rateInput = document.getElementById('irate');
+  const nameInput = document.getElementById('iname');
+  if(metal==='Chandi'){
+    karatSelect.innerHTML = `<option value="">-- चाँदी प्योरिटी --</option><option value="999 Fine Silver">999 Fine Silver</option><option value="925 Sterling Silver">925 Sterling Silver</option><option value="900 Silver">900 Silver</option><option value="800 Silver">800 Silver</option>`;
+    rateInput.placeholder = "चाँदी का रेट (प्रति ग्राम)";
+    nameInput.placeholder = "सामान - जैसे Payal, Bichiya, Chain";
+    document.getElementById('ihuidLabel').innerText = "चाँदी Smart Code / Hallmark";
+  } else {
+    karatSelect.innerHTML = `<option value="">-- कैरेट --</option><option value="24K (999)">24K (999)</option><option value="22K (916)">22K (916)</option><option value="20K (833)">20K (833)</option><option value="18K (750)">18K (750)</option><option value="14K (585)">14K (585)</option>`;
+    rateInput.placeholder = "सोने का रेट (प्रति ग्राम)";
+    nameInput.placeholder = "सामान - जैसे Haar, Ring, Chain";
+    document.getElementById('ihuidLabel').innerText = "सोना Smart Code / HUID";
+  }
+}
 window.generateNewHUID=()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } if(walletBalance<20){ alert("⚠️ Balance कम है!"); return; } let chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let newCode=''; for(let i=0;i<6;i++) newCode+=chars[Math.floor(Math.random()*chars.length)]; document.getElementById('ihuid').value=newCode; document.getElementById('huidStatus').innerHTML='✅ नया Smart Code: <b style="color:green;font-size:20px">'+newCode+'</b> <br><span style="font-size:11px">ये BIS HUID नहीं है, ये आपका Digital Bill Code है</span>'; }
-window.saveBill=async()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } const smartCode=document.getElementById('ihuid').value.trim().toUpperCase(); if(!smartCode){alert('Smart Code बनाओ!');return} if(walletBalance<20){ alert("Balance कम है!"); return; } const file=document.getElementById('iphoto').files[0]; let photo=''; if(file) photo=await toBase64(file); let makingRaw = document.getElementById('imaking').value.replace('%','').trim(); const data={ cname:cname.value, caddress:caddress.value, cmobile:cmobile.value, iname:iname.value, iweight:iweight.value, irate:irate.value, imaking:makingRaw, huid:smartCode, smartCode:smartCode, bisHuid:ihallmark.value, hallmark:ihallmark.value, karat:ikarat.value, shopName:shopProfile.shopName, shopMobile:shopProfile.shopMobile, shopAddress:shopProfile.shopAddress, shopGst:shopProfile.shopGst, shopLogo:shopProfile.logo, photo:photo, date:new Date().toLocaleString('hi-IN'), createdAt: Date.now(), owner:userEmail }; await setDoc(doc(db,'jewellery_bills',userEmail,'bills',smartCode), data); const ref=doc(db,"wallets",userEmail); try{ await updateDoc(ref,{balance: increment(-20)}); }catch(e){ await setDoc(ref,{balance:walletBalance-20,email:userEmail}); } walletBalance-=20; document.getElementById('walletBal').innerText="₹"+walletBalance; document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance; alert('✅ Save! ₹20 kat gaya!'); loadAll(); }
+window.saveBill=async()=>{
+  if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; }
+  const smartCode=document.getElementById('ihuid').value.trim().toUpperCase();
+  if(!smartCode){alert('Smart Code बनाओ!');return}
+  if(walletBalance<20){ alert("Balance कम है!"); return; }
+  const file=document.getElementById('iphoto').files[0];
+  let photo='';
+  if(file) photo=await toBase64(file);
+  let makingRaw = document.getElementById('imaking').value.replace('%','').trim();
+  const metalType = document.getElementById('imetal').value || 'Sona';
+  const data={
+    metalType: metalType,
+    cname:cname.value, caddress:caddress.value, cmobile:cmobile.value,
+    iname:iname.value, iweight:iweight.value, irate:irate.value,
+    imaking:makingRaw, huid:smartCode, smartCode:smartCode,
+    bisHuid:ihallmark.value, hallmark:ihallmark.value, karat:ikarat.value,
+    shopName:shopProfile.shopName, shopMobile:shopProfile.shopMobile,
+    shopAddress:shopProfile.shopAddress, shopGst:shopProfile.shopGst,
+    shopLogo:shopProfile.logo, photo:photo,
+    date:new Date().toLocaleString('hi-IN'), createdAt: Date.now(), owner:userEmail
+  };
+  await setDoc(doc(db,'jewellery_bills',userEmail,'bills',smartCode), data);
+  const ref=doc(db,"wallets",userEmail);
+  try{ await updateDoc(ref,{balance: increment(-20)}); }catch(e){ await setDoc(ref,{balance:walletBalance-20,email:userEmail}); }
+  walletBalance-=20;
+  document.getElementById('walletBal').innerText="₹"+walletBalance;
+  document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance;
+  alert('✅ '+metalType+' Bill Save! ₹20 kat gaya!');
+  loadAll();
+}
 window.searchBill=async()=>{ let qText = (document.getElementById('search')?.value || document.getElementById('search2')?.value || "").trim().toUpperCase(); if(!qText){ alert('Smart Code / HUID डालो!'); return; } const q=query(collectionGroup(db,'bills'), where('huid','==',qText)); const snap=await getDocs(q); render(snap); }
 window.loadAll=async()=>{ if(!userEmail) return; const snap=await getDocs(collection(db,'jewellery_bills',userEmail,'bills')); render(snap, true); }
 function render(snap, isMain=false){
@@ -41,18 +86,22 @@ let html='';
 snap.forEach(d=>{
 const b=d.data();
 let cleanMaking = (b.imaking||'').toString().replace(/%/g,'');
-const karatBadge = b.karat? `<span style="background:#ff8f00;color:white;padding:3px 10px;border-radius:15px;font-size:12px;display:inline-block;white-space:nowrap">${b.karat}</span>` : '';
+const isChandi = (b.metalType==='Chandi');
+const metalEmoji = isChandi? '🥈' : '💎';
+const metalColor = isChandi? '#90a4ae' : '#ff8f00';
+const metalLabel = isChandi? 'चाँदी' : 'सोना';
+const karatBadge = b.karat? `<span style="background:${metalColor};color:white;padding:3px 10px;border-radius:15px;font-size:12px;display:inline-block;white-space:nowrap">${b.karat}</span>` : '';
 const shopHead = b.shopName? `<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;padding:8px;border-radius:8px;margin-bottom:8px;border:2px solid #ff8f00"><img src="${b.shopLogo||'logo.png'}" style="width:40px;height:40px;border-radius:50%;object-fit:cover"><div><b style="color:#e65100">${b.shopName}</b><br><span style="font-size:11px">📞 ${b.shopMobile}<br>📍 ${b.shopAddress||''}<br>GST: ${b.shopGst||'N/A'}</span></div></div>` : '';
 let w = parseFloat(b.iweight) || 0;
 let r = parseFloat(b.irate) || 0;
 let mPercent = parseFloat(cleanMaking) || 0;
-let goldValue = w * r;
-let makingValue = (goldValue * mPercent) / 100;
-let gstGold = goldValue * 0.03;
+let metalValue = w * r;
+let makingValue = (metalValue * mPercent) / 100;
+let gstMetal = metalValue * 0.03;
 let gstMaking = makingValue * 0.05;
-let totalGst = gstGold + gstMaking;
-let total = goldValue + makingValue + totalGst;
-html+=`<div class="bill">${shopHead}${b.photo?`<img src="${b.photo}" style="width:100%;max-height:250px;object-fit:contain;border-radius:10px;border:1px solid #ffb300;margin-bottom:8px">`:''}<h3>💎 ${b.iname} - ${b.iweight} ${karatBadge}</h3><p><b>ग्राहक:</b> ${b.cname} | ${b.cmobile}<br><b>पता:</b> ${b.caddress||''}<br><b style="color:green">Smart Code:</b> <span style="color:green;font-size:22px;font-weight:bold">${b.smartCode||b.huid}</span><br><b>BIS HUID / Hallmark:</b> ${b.bisHuid||b.hallmark||'N/A'}<br><b>कैरेट:</b> ${b.karat||''}<br><b>वजन:</b> ${b.iweight}<br><b>सोने का रेट:</b> ₹${b.irate}<br><hr><b>सोने का दाम:</b> ₹${goldValue.toLocaleString('en-IN')}<br><b>Making:</b> ${cleanMaking}% = ₹${makingValue.toLocaleString('en-IN')}<br><b>Total GST (3% + 5%):</b> ₹${totalGst.toLocaleString('en-IN')}<br><b style="font-size:19px;background:yellow;padding:4px 10px;border-radius:6px;display:inline-block;margin-top:6px">💰 Total: ₹${total.toLocaleString('en-IN')}</b><br><span style="font-size:11px;color:gray">${b.date||''}</span></p></div>`;
+let totalGst = gstMetal + gstMaking;
+let total = metalValue + makingValue + totalGst;
+html+=`<div class="bill" style="border-color:${metalColor}">${shopHead}${b.photo?`<img src="${b.photo}" style="width:100%;max-height:250px;object-fit:contain;border-radius:10px;border:1px solid #ffb300;margin-bottom:8px">`:''}<h3>${metalEmoji} ${b.iname} - ${b.iweight}g (${metalLabel}) ${karatBadge}</h3><p><b>ग्राहक:</b> ${b.cname} | ${b.cmobile}<br><b>पता:</b> ${b.caddress||''}<br><b style="color:green">Smart Code:</b> <span style="color:green;font-size:22px;font-weight:bold">${b.smartCode||b.huid}</span><br><b>BIS HUID / Hallmark:</b> ${b.bisHuid||b.hallmark||'N/A'}<br><b>धातु:</b> ${b.metalType||'Sona'}<br><b>प्योरिटी:</b> ${b.karat||''}<br><b>वजन:</b> ${b.iweight} ग्राम<br><b>${metalLabel} का रेट:</b> ₹${b.irate}<br><hr><b>${metalLabel} का दाम:</b> ₹${metalValue.toLocaleString('en-IN')}<br><b>Making:</b> ${cleanMaking}% = ₹${makingValue.toLocaleString('en-IN')}<br><b>Total GST (3% + 5%):</b> ₹${totalGst.toLocaleString('en-IN')}<br><b style="font-size:19px;background:yellow;padding:4px 10px;border-radius:6px;display:inline-block;margin-top:6px">💰 Total: ₹${total.toLocaleString('en-IN')}</b><br><span style="font-size:11px;color:gray">${b.date||''}</span></p></div>`;
 });
 const el = isMain? document.getElementById('resultMain') : document.getElementById('result');
 if(el) el.innerHTML=html||'<p style="text-align:center;color:red">❌ कोई Bill नहीं मिला</p>';
@@ -63,9 +112,9 @@ function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); 
 <style>*{box-sizing:border-box;font-family:system-ui}body{margin:0;background:#fff8e1;padding:0}.top-banner{background:linear-gradient(135deg,#ff8f00,#e65100);color:white;padding:18px 12px;text-align:center}.main-content{padding:12px}.card{background:white;padding:14px;border-radius:14px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:14px}input,select{width:100%;padding:11px;margin:5px 0;border:1.5px solid #ffb300;border-radius:8px}button{width:100%;padding:13px;background:linear-gradient(45deg,#ff8f00,#ff6f00);color:white;border:none;border-radius:10px;font-weight:bold;margin-top:8px;cursor:pointer}.btn-green{background:linear-gradient(45deg,#00c853,#009624)}.btn-blue{background:linear-gradient(45deg,#1976d2,#0d47a1)}.bill{border:2px solid #ff8f00;border-radius:12px;padding:10px;margin-top:10px;background:white}.bill img{width:100%;max-height:220px;object-fit:contain}.wallet{background:linear-gradient(135deg,#00c853,#009624);color:white;padding:14px;border-radius:14px;margin-bottom:14px;text-align:center}.search-row{display:flex;gap:8px;align-items:center}.gst-card{border:3px solid #e65100}.return-card{border:3px solid #1976d2}</style>
 </head>
 <body>
-<div class="top-banner"><h1>💎 VYAPAR BANDHU AUTO RESET</h1><p>Smart Bill Code + GST + RETURN AUTO 0</p></div>
+<div class="top-banner"><h1>💎 VYAPAR BANDHU AUTO RESET</h1><p>Smart Bill Code - Sona + Chandi + GST + RETURN AUTO 0</p></div>
 <div class="main-content">
-<h2 style="text-align:center;margin:8px 0">💎 Vyapar Bandhu - All Set 💎</h2>
+<h2 style="text-align:center;margin:8px 0">💎 Vyapar Bandhu - Sona Chandi All Set 💎</h2>
 <div id="loginBox" class="card" style="text-align:center">
   <h3>🔐 Gmail Login करो</h3>
   <button class="btn-green" onclick="login()">Gmail से Login</button>
@@ -80,10 +129,25 @@ function toBase64(f){ return new Promise((res,rej)=>{ const r=new FileReader(); 
   <div class="card return-card"><h2 style="text-align:center;color:#0d47a1">📊 GST Return File - ₹500 + AUTO RESET</h2><button onclick="autoReturnFromHUID()" style="background:linear-gradient(45deg,#00c853,#009624)">🤖 Smart Code से Auto हिसाब बनाओ (पुराना 0)</button><input id="retSale" type="number" placeholder="💰 बेचा?"><input id="retPurchase" type="number" placeholder="🛒 खरीदा?"><button onclick="calculateReturn()" style="background:#ff8f00">🧮 हिसाब निकालो</button><div id="retCalcResult"></div><input id="retGstin" placeholder="📄 GSTIN *"><input id="retEmail" placeholder="📧 Gmail *"><input id="retMobile" placeholder="📞 Mobile *"><select id="retType"><option>GSTR-3B - Monthly</option><option>GSTR-1 - Monthly</option></select><select id="retMonth"><option value="">-- महीना चुनो --</option><option>August 2026</option><option>September 2026</option></select><button class="btn-blue" onclick="payAndFileReturn()">💳 ₹500 Pay करो - Return File</button><div id="returnLeadsList"></div><p style="font-size:10px;color:gray;text-align:center;margin-top:8px">We provide assistance through GST Suvidha Provider. Final filing responsibility is yours.</p></div>
   <button onclick="logout()" style="background:#333">Logout</button>
   <div class="search-row" style="margin-top:12px"><input id="search2" placeholder="🔍 Smart Code Search" style="flex:1;margin:0"><button onclick="searchBill()" style="width:90px;margin:0;background:#1976d2">Search</button></div>
-  <div class="card"><h3>नया Bill - <span id="walletBal2">Balance: ₹0</span></h3><input id="cname" placeholder="ग्राहक नाम"><input id="caddress" placeholder="पता"><input id="cmobile" placeholder="मोबाइल"><input id="iname" placeholder="सामान"><input id="iweight" placeholder="वजन"><select id="ikarat"><option value="">-- कैरेट --</option><option value="24K (999)">24K (999)</option><option value="22K (916)">22K (916)</option><option value="20K (833)">20K (833)</option><option value="18K (750)">18K (750)</option></select><input id="irate" placeholder="रेट"><input id="imaking" placeholder="Making %"><input id="ihuid" placeholder="Smart Code" readonly style="background:#fff3cd"><button class="btn-green" onclick="generateNewHUID()">✨ नया Smart Code बनाओ (₹20)</button><p id="huidStatus" style="font-size:11px;color:gray;text-align:center">ये BIS HUID नहीं, आपका Private Bill Code है जो BIS HUID के साथ लिंक होगा</p><input id="ihallmark" placeholder="BIS HUID / Hallmark No."><input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()">💾 Save Bill</button></div>
+  <div class="card"><h3>नया Bill - <span id="walletBal2">Balance: ₹0</span></h3>
+  <input id="cname" placeholder="ग्राहक नाम - जैसे Pupri">
+  <input id="caddress" placeholder="पता">
+  <input id="cmobile" placeholder="मोबाइल - जैसे 9334189556">
+  <select id="imetal" onchange="updateMetalType()" style="background:#fff3cd;border:2px solid #ff8f00;font-weight:bold">
+    <option value="Sona">💎 सोना (Gold) - जैसे आपका 140 वाला</option>
+    <option value="Chandi">🥈 चाँदी (Silver) - जैसे Payal 200 वाला</option>
+  </select>
+  <input id="iname" placeholder="सामान - जैसे Payal">
+  <input id="iweight" placeholder="वजन ग्राम में - जैसे 140">
+  <select id="ikarat"><option value="">-- कैरेट --</option><option value="24K (999)">24K (999)</option><option value="22K (916)">22K (916)</option><option value="20K (833)">20K (833)</option><option value="18K (750)">18K (750)</option></select>
+  <input id="irate" placeholder="रेट प्रति ग्राम">
+  <input id="imaking" placeholder="Making % - जैसे 200">
+  <input id="ihuid" placeholder="Smart Code" readonly style="background:#fff3cd"><button class="btn-green" onclick="generateNewHUID()">✨ नया Smart Code बनाओ (₹20)</button><p id="huidStatus" style="font-size:11px;color:gray;text-align:center">ये BIS HUID नहीं, आपका Private Bill Code है</p>
+  <label id="ihuidLabel" style="font-size:12px;font-weight:bold">BIS HUID / Hallmark No.</label><input id="ihallmark" placeholder="BIS HUID / Hallmark No. - जैसे EUTXF3">
+  <input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()">💾 Save Bill - Sona / Chandi</button></div>
   <div id="resultMain"></div>
   <div style="background:#222;color:#aaa;padding:12px;border-radius:10px;margin-top:15px;font-size:10px;text-align:center">
-    <b>Disclaimer:</b> Vyapar Bandhu is NOT a Government / BIS Official Website. We provide advanced digital billing solution OVER BIS HUID. BIS HUID is issued only by BIS Hallmark Centers. Our Smart Code is a private Digital Bill Code for photo-bill verification to increase customer trust. <br>Wallet is Non-Refundable & for App services only.
+    <b>Disclaimer:</b> Vyapar Bandhu is NOT a Government / BIS Official Website. We provide advanced digital billing solution OVER BIS HUID. Supports Sona (Gold) & Chandi (Silver) both.<br>Wallet is Non-Refundable & for App services only.
   </div>
 </div>
 </div>
