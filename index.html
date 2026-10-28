@@ -2,9 +2,7 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vyapar Bandhu ULTIMATE - Referral Wallet - OWNER FREE</title>
-<link rel="icon" type="image/png" href="logo.png">
-<meta name="theme-color" content="#ff8f00">
+<title>Vyapar Bandhu ULTIMATE - Sona Chandi - OWNER FREE</title>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -19,214 +17,131 @@ const RAZORPAY_KEY = "rzp_live_TSSLcwOZn8V7er";
 const OWNER_EMAILS = ["wwwraviraj12487@gmail.com", "raviraj12487@gmail.com", "ravijewellers@gmail.com"];
 const IS_OWNER = () => userEmail && OWNER_EMAILS.includes(userEmail.toLowerCase().trim());
 let userEmail=null; let walletBalance=0; let shopProfile=null;
-
-window.login=async()=>{ try{ const result = await signInWithPopup(auth, provider); }catch(e){ alert("Popup Block: "+e.message); } }
+window.login=async()=>{ try{ await signInWithPopup(auth, provider); }catch(e){ alert("Login Error: "+e.message); } }
 window.logout=()=>signOut(auth).then(()=>location.reload());
-
 onAuthStateChanged(auth,async(u)=>{ 
   if(u){ 
     userEmail=u.email; 
-    document.getElementById('loginBox').style.display='none'; 
-    document.getElementById('mainBox').style.display='block'; 
-    document.getElementById('userEmail').innerText='Login: '+userEmail + (IS_OWNER()? ' 👑 OWNER FREE' : ''); 
+    const lb=document.getElementById('loginBox'); if(lb) lb.style.display='none';
+    const mb=document.getElementById('mainBox'); if(mb) mb.style.display='block';
+    const ue=document.getElementById('userEmail'); if(ue) ue.innerText='Login: '+userEmail + (IS_OWNER()? ' 👑 OWNER FREE' : '');
     await loadWallet(); 
-    await checkReferralAndGiveReward(); // NAYA
+    await checkReferralReward();
     await loadShopProfile(); 
-    loadAll(); loadGstLeads(); loadReturnLeads(); 
-  } else{ 
-    document.getElementById('loginBox').style.display='block'; 
-    document.getElementById('mainBox').style.display='none'; 
+    loadAll(); loadGstLeads(); loadReturnLeads();
+  } else { 
+    const lb=document.getElementById('loginBox'); if(lb) lb.style.display='block';
+    const mb=document.getElementById('mainBox'); if(mb) mb.style.display='none';
   } 
 });
 
-// ===== WALLET SYSTEM =====
 async function loadWallet(){
-  const ref=doc(db,"wallets",userEmail);
-  const snap=await getDoc(ref);
-  if(snap.exists()){
-    walletBalance=snap.data().balance||0;
-    if(walletBalance < 0){
-      walletBalance = 0;
-      await setDoc(ref,{balance:0,email:userEmail},{merge:true});
-    }
-  } else {
-    await setDoc(ref,{balance:0,email:userEmail, referralCode: userEmail});
-    walletBalance=0;
-  }
+  try{
+    const ref=doc(db,"wallets",userEmail);
+    const snap=await getDoc(ref);
+    if(snap.exists()){ walletBalance=snap.data().balance||0; if(walletBalance<0) walletBalance=0; } 
+    else { await setDoc(ref,{balance:0,email:userEmail}); walletBalance=0; }
+  }catch(e){ console.log(e); }
   updateWalletUI();
   loadWalletHistory();
 }
 function updateWalletUI(){
-  if(IS_OWNER()){
-    document.getElementById('walletBal').innerText="👑 FREE - ₹"+walletBalance;
-    document.getElementById('walletBal2').innerText="👑 Owner Free - Balance: ₹"+walletBalance;
-  } else {
-    document.getElementById('walletBal').innerText="₹"+walletBalance;
-    document.getElementById('walletBal2').innerText="Balance: ₹"+walletBalance+" (सिर्फ बिल बनाने में)";
-  }
-  // Referral Link Show
-  let link = window.location.origin + window.location.pathname + "?ref=" + encodeURIComponent(userEmail);
-  document.getElementById('referralLink').value = link;
+  const el1=document.getElementById('walletBal'); const el2=document.getElementById('walletBal2');
+  if(el1) el1.innerText = IS_OWNER()? "👑 FREE - ₹"+walletBalance : "₹"+walletBalance;
+  if(el2) el2.innerText = IS_OWNER()? "👑 Owner Free - Balance: ₹"+walletBalance : "Balance: ₹"+walletBalance+" (सिर्फ बिल के लिए)";
+  const rl=document.getElementById('referralLink');
+  if(rl){ let link = window.location.origin + window.location.pathname + "?ref=" + encodeURIComponent(userEmail); rl.value=link; }
 }
 
-// ===== NAYA - REFERRAL SYSTEM - 10 RUPYA SIRF BILL KE LIYE =====
-async function checkReferralAndGiveReward(){
-  const urlParams = new URLSearchParams(window.location.search);
-  let referrerEmail = urlParams.get('ref');
-  if(referrerEmail) localStorage.setItem('vb_ref', referrerEmail);
-  else referrerEmail = localStorage.getItem('vb_ref');
-
-  if(!referrerEmail) return;
-  referrerEmail = decodeURIComponent(referrerEmail);
-  if(referrerEmail === userEmail) return; // Khud ko nahi
-
-  // Kya is user ne pehle hi referral use kiya hai?
-  const referralDocRef = doc(db, "referrals", userEmail);
-  const referralSnap = await getDoc(referralDocRef);
-  if(referralSnap.exists()) return; // Pehle se ho chuka hai
-
-  // Referrer ka wallet badhao - ₹10
-  const refWalletRef = doc(db, "wallets", referrerEmail);
-  const refWalletSnap = await getDoc(refWalletRef);
-  if(refWalletSnap.exists()){
-    await updateDoc(refWalletRef, { balance: increment(10) });
-  } else {
-    await setDoc(refWalletRef, { balance: 10, email: referrerEmail });
-  }
-  // History
-  await addDoc(collection(db, 'wallet_history'), {
-    type: 'REFERRAL_EARN',
-    from: userEmail,
-    to: referrerEmail,
-    amount: 10,
-    date: new Date().toLocaleString('hi-IN'),
-    timestamp: Date.now(),
-    note: '₹10 मिला - '+userEmail+' ने ज्वाइन किया (सिर्फ बिल के लिए, विड्रॉल नहीं)'
-  });
-  // Mark ki ye user referral de chuka hai
-  await setDoc(referralDocRef, {
-    referredBy: referrerEmail,
-    referredEmail: userEmail,
-    date: new Date().toLocaleString('hi-IN'),
-    timestamp: Date.now()
-  });
-  localStorage.removeItem('vb_ref');
-  alert("✅ आपका अकाउंट रेफरल से बना! आपके दोस्त को ₹10 मिल गया (सिर्फ बिल बनाने के लिए)");
+// REFERRAL - SIRF BILL KE LIYE, WITHDRAW NAHI
+async function checkReferralReward(){
+  try{
+    const urlParams = new URLSearchParams(window.location.search);
+    let refEmail = urlParams.get('ref') || localStorage.getItem('vb_ref');
+    if(!refEmail) return;
+    refEmail = decodeURIComponent(refEmail);
+    if(refEmail === userEmail) return;
+    localStorage.setItem('vb_ref', refEmail);
+    const refDoc = doc(db,"referrals",userEmail);
+    const snap = await getDoc(refDoc);
+    if(snap.exists()){ localStorage.removeItem('vb_ref'); return; }
+    const walletRef = doc(db,"wallets",refEmail);
+    const wSnap = await getDoc(walletRef);
+    if(wSnap.exists()){ await updateDoc(walletRef,{balance:increment(10)}); }
+    else{ await setDoc(walletRef,{balance:10,email:refEmail}); }
+    await addDoc(collection(db,'wallet_history'),{type:'REFERRAL',to:refEmail,from:userEmail,amount:10,date:new Date().toLocaleString('hi-IN'),timestamp:Date.now()});
+    await setDoc(refDoc,{referredBy:refEmail,referredEmail:userEmail,date:new Date().toLocaleString('hi-IN')});
+    localStorage.removeItem('vb_ref');
+    alert("✅ आपके दोस्त को ₹10 मिल गया (सिर्फ बिल के लिए)");
+  }catch(e){ console.log("Referral error",e); }
 }
-
 window.shareReferral=()=>{
-  let link = document.getElementById('referralLink').value;
-  let text = `🔥 Vyapar Bandhu - सोना चाँदी का पक्का बिल बनाओ, सिर्फ ₹20 में!\nमेरा लिंक से ज्वाइन करो: ${link}\n\nनोट: पैसा सिर्फ बिल बनाने में यूज़ होगा`;
-  if(navigator.share){
-    navigator.share({title: 'Vyapar Bandhu', text: text, url: link});
-  } else {
-    window.open("https://wa.me/?text="+encodeURIComponent(text), "_blank");
-  }
+  const rl=document.getElementById('referralLink'); if(!rl) return;
+  let text=`🔥 Vyapar Bandhu - सोना चाँदी बिल सिर्फ ₹20 में! मेरे लिंक से ज्वाइन करो: ${rl.value}`;
+  window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");
 }
 window.copyReferral=()=>{
-  let el = document.getElementById('referralLink');
-  el.select(); document.execCommand('copy');
-  alert("✅ लिंक कॉपी हो गया! अब शेयर करो और ₹10 पाओ");
+  const rl=document.getElementById('referralLink'); if(!rl) return;
+  rl.select(); document.execCommand('copy'); alert("✅ लिंक कॉपी हो गया");
 }
-
 async function loadWalletHistory(){
-  const qy = query(collection(db, 'wallet_history'), where('to','==',userEmail));
-  const snap = await getDocs(qy);
-  let html = `<h4>📒 वॉलेट हिस्ट्री (विड्रॉल नहीं होगा, सिर्फ बिल के लिए)</h4>`;
-  let totalEarn = 0;
-  snap.forEach(d=>{
-    const h=d.data();
-    if(h.type==='REFERRAL_EARN'){ totalEarn+=h.amount; html+=`<div style="border:1px solid green;padding:6px;border-radius:6px;margin:4px 0;background:#e8f5e9">✅ +₹${h.amount} - ${h.from} से मिला - ${h.date}</div>` }
-  });
-  if(totalEarn==0) html+='<p style="font-size:12px;color:gray">अभी तक कोई रेफरल नहीं</p>';
-  else html = `<p style="background:yellow;padding:5px;border-radius:6px;text-align:center"><b>कुल रेफरल से कमाई: ₹${totalEarn} (सिर्फ बिल बनाने में यूज़ होगा)</b></p>` + html;
-  document.getElementById('walletHistory').innerHTML = html;
+  try{
+    const qy=query(collection(db,'wallet_history'),where('to','==',userEmail));
+    const snap=await getDocs(qy);
+    let html=""; let total=0;
+    snap.forEach(d=>{ const h=d.data(); if(h.amount>0){ total+=h.amount; html+=`<div style="border:1px solid green;padding:6px;border-radius:6px;margin:4px 0;background:#e8f5e9">✅ +₹${h.amount} - ${h.from} से</div>`; }});
+    const wh=document.getElementById('walletHistory'); if(wh) wh.innerHTML = total>0 ? `<b>कुल कमाई: ₹${total} (सिर्फ बिल के लिए, विड्रॉल नहीं)</b><br>`+html : "<p style='font-size:12px;color:gray'>अभी तक कोई रेफरल नहीं</p>";
+  }catch(e){}
 }
 
-async function loadShopProfile(){ const ref=doc(db,"shops",userEmail); const snap=await getDoc(ref); if(snap.exists()){ shopProfile=snap.data(); document.getElementById('shopDisplay').innerHTML = `<div style="display:flex;align-items:center;gap:10px;background:#fff3cd;padding:10px;border-radius:10px;border:2px solid #ff8f00"><img src="${shopProfile.logo||'logo.png'}" style="width:50px;height:50px;border-radius:50%;object-fit:cover"><div style="text-align:left"><b>${shopProfile.shopName}</b><br><span style="font-size:12px">📞 ${shopProfile.shopMobile}</span><br><span style="font-size:11px">Last Return: ${shopProfile.lastReturnMonth||'अभी तक नहीं'}</span></div><button onclick="editShop()" style="width:auto;margin-left:auto;background:#333;padding:6px 12px;font-size:12px">Edit</button></div>`; document.getElementById('shopSetupCard').style.display='none'; } else { document.getElementById('shopDisplay').innerHTML='<p style="color:red;text-align:center">⚠️ पहले दुकान Setup करो!</p>'; document.getElementById('shopSetupCard').style.display='block'; } }
-window.editShop=()=>{ document.getElementById('shopSetupCard').style.display='block'; }
+async function loadShopProfile(){ const ref=doc(db,"shops",userEmail); const snap=await getDoc(ref); if(snap.exists()){ shopProfile=snap.data(); const sd=document.getElementById('shopDisplay'); if(sd) sd.innerHTML = `<div style="display:flex;align-items:center;gap:10px;background:#fff3cd;padding:10px;border-radius:10px;border:2px solid #ff8f00"><img src="${shopProfile.logo||'logo.png'}" style="width:50px;height:50px;border-radius:50%;object-fit:cover"><div style="text-align:left"><b>${shopProfile.shopName}</b><br><span style="font-size:12px">📞 ${shopProfile.shopMobile}</span><br><span style="font-size:11px">Last Return: ${shopProfile.lastReturnMonth||'अभी तक नहीं'}</span></div><button onclick="editShop()" style="width:auto;margin-left:auto;background:#333;padding:6px 12px;font-size:12px">Edit</button></div>`; const sc=document.getElementById('shopSetupCard'); if(sc) sc.style.display='none'; } else { const sd=document.getElementById('shopDisplay'); if(sd) sd.innerHTML='<p style="color:red;text-align:center">⚠️ पहले दुकान Setup करो!</p>'; const sc=document.getElementById('shopSetupCard'); if(sc) sc.style.display='block'; } }
+window.editShop=()=>{ const el=document.getElementById('shopSetupCard'); if(el) el.style.display='block'; }
 window.saveShopProfile=async()=>{ const shopName=document.getElementById('sname').value.trim(); const shopMobile=document.getElementById('smobile').value.trim(); const shopAddress=document.getElementById('saddress').value.trim(); const shopGst=document.getElementById('sgst').value.trim().toUpperCase(); const shopTin=document.getElementById('stin').value.trim().toUpperCase(); if(!shopName||!shopMobile){ alert('दुकान का नाम और मोबाइल डालो!'); return; } let logo=''; const file=document.getElementById('slogo').files[0]; if(file) logo=await toBase64(file); else if(shopProfile && shopProfile.logo) logo=shopProfile.logo; const data={ shopName, shopMobile, shopAddress, shopGst, shopTin, logo, email:userEmail, updated:new Date().toLocaleString('hi-IN') }; await setDoc(doc(db,'shops',userEmail), data, {merge:true}); shopProfile={...shopProfile,...data}; alert('✅ दुकान Save हो गयी!'); loadShopProfile(); }
-window.rechargeWallet=()=>{ const amt=parseInt(document.getElementById('rechargeAmt').value); if(!amt || amt<10){ alert("कम से कम ₹10 डालो"); return; } var options={ "key": RAZORPAY_KEY, "amount": amt*100, "currency": "INR", "name": "Vyapar Bandhu Wallet", "description": "Wallet Recharge ₹"+amt+" (Non-Refundable, Sirf Bill Ke Liye)", "handler": async function(response){ const ref=doc(db,"wallets",userEmail); try{ await updateDoc(ref,{balance: increment(amt)}); }catch(e){ await setDoc(ref,{balance:amt,email:userEmail}); } await addDoc(collection(db, 'wallet_history'), { type:'RECHARGE', to:userEmail, amount:amt, paymentId:response.razorpay_payment_id, date:new Date().toLocaleString('hi-IN'), timestamp:Date.now(), note:'Recharge ₹'+amt }); alert("✅ Recharge Success! ₹"+amt+" Add हो गया (सिर्फ बिल के लिए)"); loadWallet(); }, "prefill": { "email": userEmail }, "theme": { "color": "#ff8f00" } }; var rzp=new Razorpay(options); rzp.open(); }
-window.payAndCreateGST=async()=>{ const gname=document.getElementById('gstName').value.trim(); const gmobile=document.getElementById('gstMobile').value.trim(); const gmail=document.getElementById('gstEmail').value.trim(); const gstate=document.getElementById('gstState').value.trim(); if(!gname||!gmobile||!gmail){ alert('⚠️ नाम, मोबाइल, Gmail डालो!'); return; } var options={ "key": RAZORPAY_KEY, "amount": 1500*100, "currency": "INR", "name": "Vyapar Bandhu - GST Assistance", "description": "GST Registration Assistance Fee ₹1500 (Govt Fee Extra)", "handler": async function(res){ const leadData={ clientName:gname, clientMobile:gmobile, clientEmail:gmail, state:gstate, pan:document.getElementById('gstPanNo').value, legalName:document.getElementById('gstLegal').value, paymentId:res.razorpay_payment_id, amount:1500, owner:userEmail, date:new Date().toLocaleString('hi-IN'), status:'PAID ₹1500' }; await addDoc(collection(db,'gst_leads',userEmail,'leads'), leadData); alert('✅ ₹1500 Success! अब सरकारी Form खुलेगा!'); window.open('https://reg.gst.gov.in/registration/','_blank'); loadGstLeads(); }, "prefill": { "email": gmail, "contact": gmobile }, "theme": { "color": "#ff8f00" } }; var rzp=new Razorpay(options); rzp.open(); }
-async function loadGstLeads(){ if(!userEmail) return; const snap=await getDocs(collection(db,'gst_leads',userEmail,'leads')); let html=`<h4>📋 GST Customers: ${snap.size} - कमाई: ₹${snap.size*1500}</h4>`; snap.forEach(d=>{ const g=d.data(); html+=`<div style="border:1px solid #ff8f00;padding:8px;border-radius:8px;margin:5px 0;background:#fff8e1"><b>${g.clientName}</b> - ${g.clientMobile}</div>`; }); document.getElementById('gstLeadsList').innerHTML=html; }
-window.calculateReturn=()=>{ const sale = parseFloat(document.getElementById('retSale').value)||0; const purchase = parseFloat(document.getElementById('retPurchase').value)||0; if(sale==0){ document.getElementById('retCalcResult').innerHTML='<p style="color:red;text-align:center">पहले Sale डालो!</p>'; return; } const gstOnSale = sale * 0.03; const gstOnPurchase = purchase * 0.03; const netGst = gstOnSale - gstOnPurchase; const totalPayGovt = netGst > 0? netGst : 0; document.getElementById('retCalcResult').innerHTML = `<div style="background:#fff8e1;border:2px solid #ff8f00;padding:10px;border-radius:10px"><b style="background:yellow;padding:4px 8px">🏛️ सरकार को: ₹${totalPayGovt.toLocaleString('en-IN')}</b><br><b>Service Assistance: ₹500</b><br><b style="color:red">कुल: ₹${(totalPayGovt+500).toLocaleString('en-IN')}</b></div>`; }
-window.autoReturnFromHUID=async()=>{ if(!userEmail) return; document.getElementById('retCalcResult').innerHTML='<p style="text-align:center;color:blue">🔍 Smart Code से हिसाब जोड़ रहा हूँ...</p>'; const shopSnap = await getDoc(doc(db,'shops',userEmail)); let lastTs = 0; if(shopSnap.exists() && shopSnap.data().lastReturnTs){ lastTs = shopSnap.data().lastReturnTs; } const snap = await getDocs(collection(db,'jewellery_bills',userEmail,'bills')); let totalSale = 0; let count = 0; let oldCount = 0; snap.forEach(d=>{ const b = d.data(); const billTs = b.createdAt || 0; if(billTs > lastTs){ let w = parseFloat(b.iweight)||0; let r = parseFloat(b.irate)||0; let m = parseFloat((b.imaking||'0').toString().replace('%',''))||0; let goldValue = w * r; let makingValue = (goldValue * m)/100; totalSale += goldValue + makingValue; count++; } else { oldCount++; } }); document.getElementById('retSale').value = Math.round(totalSale); const gst = totalSale * 0.03; document.getElementById('retCalcResult').innerHTML = `<div style="background:#e8f5e9;border:2px solid #00c853;padding:10px;border-radius:10px"><h4 style="margin:0;color:#00c853">✅ Auto हिसाब बन गया! (पुराना हिसाब 0)</h4><p style="font-size:13px">पुराने Bill: ${oldCount} | नए Bill: ${count}<br>💰 बिक्री: ₹${totalSale.toLocaleString('en-IN')}<br>🏛️ GST: ₹${gst.toLocaleString('en-IN')}</p></div>`; }
-window.payAndFileReturn=async()=>{ const gstin=document.getElementById('retGstin').value.trim().toUpperCase(); const retEmail=document.getElementById('retEmail').value.trim(); const retMonth=document.getElementById('retMonth').value; const retType=document.getElementById('retType').value; const saleAmt=document.getElementById('retSale').value; if(!gstin||!retEmail||!retMonth){ alert('⚠️ GSTIN, Email और Month डालो!'); return; } var options={ "key": RAZORPAY_KEY, "amount": 500*100, "currency": "INR", "name": "Vyapar Bandhu - GST Return Assistance", "description": "Return Assistance Service ₹500", "handler": async function(res){ const data={ gstin, email:retEmail, mobile:document.getElementById('retMobile').value, month:retMonth, type:retType, sale:saleAmt, purchase:document.getElementById('retPurchase').value, paymentId:res.razorpay_payment_id, amount:500, owner:userEmail, date:new Date().toLocaleString('hi-IN'), status:'PAID ₹500' }; await addDoc(collection(db,'gst_returns',userEmail,'returns'), data); await setDoc(doc(db,'shops',userEmail), { lastReturnTs: Date.now(), lastReturnMonth: retMonth }, {merge:true}); alert('✅ ₹500 Success! Return Assistance Done! पुराना हिसाब 0!'); window.open('https://services.gst.gov.in/services/login','_blank'); loadReturnLeads(); loadShopProfile(); }, "prefill": { "email": retEmail, "contact": document.getElementById('retMobile').value }, "theme": { "color": "#1976d2" } }; var rzp=new Razorpay(options); rzp.open(); }
-async function loadReturnLeads(){ if(!userEmail) return; const snap=await getDocs(collection(db,'gst_returns',userEmail,'returns')); let html=`<h4>📊 Return Customers: ${snap.size} - कमाई: ₹${snap.size*500}</h4>`; snap.forEach(d=>{ const r=d.data(); html+=`<div style="border:1px solid #1976d2;padding:8px;border-radius:8px;margin:5px 0;background:#e3f2fd"><b>${r.gstin}</b> - ${r.month}</div>`; }); document.getElementById('returnLeadsList').innerHTML=html; }
-window.updateMetalType=()=>{
-  const metal = document.getElementById('imetal').value;
-  const karatSelect = document.getElementById('ikarat');
-  const rateInput = document.getElementById('irate');
-  const nameInput = document.getElementById('iname');
-  if(metal==='Chandi'){
-    karatSelect.innerHTML = `<option value="">-- चाँदी प्योरिटी --</option><option value="999 Fine Silver">999 Fine Silver</option><option value="925 Sterling Silver">925 Sterling Silver</option><option value="900 Silver">900 Silver</option><option value="800 Silver">800 Silver</option>`;
-    rateInput.placeholder = "चाँदी का रेट (प्रति ग्राम)";
-    nameInput.placeholder = "सामान - जैसे Payal, Bichiya, Chain";
-    document.getElementById('ihuidLabel').innerText = "चाँदी Smart Code / Hallmark";
-  } else {
-    karatSelect.innerHTML = `<option value="">-- कैरेट --</option><option value="24K (999)">24K (999)</option><option value="22K (916)">22K (916)</option><option value="20K (833)">20K (833)</option><option value="18K (750)">18K (750)</option><option value="14K (585)">14K (585)</option>`;
-    rateInput.placeholder = "सोने का रेट (प्रति ग्राम)";
-    nameInput.placeholder = "सामान - जैसे Haar, Ring, Chain";
-    document.getElementById('ihuidLabel').innerText = "सोना Smart Code / HUID";
-  }
-}
-window.generateNewHUID=()=>{
-  if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; }
-  if(!IS_OWNER() && walletBalance<20){ alert("⚠️ Balance कम है! Recharge karo - Balance ₹"+walletBalance+" है, ₹20 चाहिए"); return; }
-  let chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let newCode='';
-  for(let i=0;i<6;i++) newCode+=chars[Math.floor(Math.random()*chars.length)];
-  document.getElementById('ihuid').value=newCode;
-  if(IS_OWNER()){
-    document.getElementById('huidStatus').innerHTML='✅ नया Smart Code: <b style="color:green;font-size:20px">'+newCode+'</b> <br><span style="font-size:12px;color:green;font-weight:bold">👑 Owner Free - Aapke liye FREE hai, ₹0 lagega</span>';
-  } else {
-    document.getElementById('huidStatus').innerHTML='✅ नया Smart Code: <b style="color:green;font-size:20px">'+newCode+'</b> <br><span style="font-size:11px">₹20 katega - Wallet se (सिर्फ बिल के लिए)</span>';
-  }
-}
-window.saveBill=async()=>{
-  if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; }
-  const smartCode=document.getElementById('ihuid').value.trim().toUpperCase();
-  if(!smartCode){alert('Smart Code बनाओ!');return}
-  const walletRef = doc(db,"wallets",userEmail);
-  const walletSnap = await getDoc(walletRef);
-  let liveBalance = walletSnap.exists()? (walletSnap.data().balance||0) : 0;
-  if(liveBalance < 0){
-    liveBalance = 0;
-    await setDoc(walletRef,{balance:0,email:userEmail},{merge:true});
-  }
-  if(!IS_OWNER() && liveBalance < 20){
-    alert("⚠️ Balance कम है! ₹"+liveBalance+" hai, ₹20 chahiye. Pehle Recharge karo ya Referral se kamao!");
-    walletBalance = liveBalance;
-    updateWalletUI();
-    return;
-  }
-  const file=document.getElementById('iphoto').files[0];
-  let photo='';
-  if(file) photo=await toBase64(file);
-  let makingRaw = document.getElementById('imaking').value.replace('%','').trim();
-  const metalType = document.getElementById('imetal').value || 'Sona';
-  const data={
-    metalType: metalType,
-    cname:cname.value, caddress:caddress.value, cmobile:cmobile.value,
-    iname:iname.value, iweight:iweight.value, irate:irate.value,
-    imaking:makingRaw, huid:smartCode, smartCode:smartCode,
-    bisHuid:ihallmark.value, hallmark:ihallmark.value, karat:ikarat.value,
-    shopName:shopProfile.shopName, shopMobile:shopProfile.shopMobile,
-    shopAddress:shopProfile.shopAddress, shopGst:shopProfile.shopGst,
-    shopLogo:shopProfile.logo, photo:photo,
-    date:new Date().toLocaleString('hi-IN'), createdAt: Date.now(), owner:userEmail,
-    isFree: IS_OWNER()? true : false
-  };
-  await setDoc(doc(db,'jewellery_bills',userEmail,'bills',smartCode), data);
-  if(!IS_OWNER()){
-    try{
-      await updateDoc(walletRef,{balance: increment(-20)});
-      walletBalance = liveBalance - 20;
-    }catch(e){
-      walletBalance = liveBalance - 20;
-      await setDoc(walletRef,{balance:walletBalance,email:userEmail},{merge:true});
-    }
-    await addDoc(collection(db, 'wallet_history'), { type:'BILL_DEDUCT', to:userEmail, amount:-20, smartCode:smartCode, date:new Date().toLocaleString('hi-IN'), timestamp:Date.now(), note:'₹20 कटा - बिल '+smartCode+' के लिए' });
-    updateWalletUI();
-    alert('✅ '+metalType+' Bill Save! ₹20 वॉलेट से कट गया! (सिर्फ बिल वाला पैसा)');
-  } else
+window.rechargeWallet=()=>{ const amt=parseInt(document.getElementById('rechargeAmt').value); if(!amt || amt<10){ alert("कम से कम ₹10 डालो"); return; } var options={ "key": RAZORPAY_KEY, "amount": amt*100, "currency": "INR", "name": "Vyapar Bandhu Wallet", "description": "Wallet Recharge ₹"+amt+" (Non-Refundable, Sirf Bill Ke Liye)", "handler": async function(response){ const ref=doc(db,"wallets",userEmail); try{ await updateDoc(ref,{balance: increment(amt)}); }catch(e){ await setDoc(ref,{balance:amt,email:userEmail}); } alert("✅ Recharge Success! ₹"+amt+" Add हो गया (सिर्फ बिल के लिए, विड्रॉल नहीं)"); loadWallet(); }, "prefill": { "email": userEmail }, "theme": { "color": "#ff8f00" } }; var rzp=new Razorpay(options); rzp.open(); }
+window.payAndCreateGST=async()=>{ const gname=document.getElementById('gstName').value.trim(); const gmobile=document.getElementById('gstMobile').value.trim(); const gmail=document.getElementById('gstEmail').value.trim(); const gstate=document.getElementById('gstState').value.trim(); if(!gname||!gmobile||!gmail){ alert('⚠️ नाम, मोबाइल, Gmail डालो!'); return; } var options={ "key": RAZORPAY_KEY, "amount": 1500*100, "currency": "INR", "name": "Vyapar Bandhu - GST Assistance", "description": "GST Registration Assistance Fee ₹1500", "handler": async function(res){ const leadData={ clientName:gname, clientMobile:gmobile, clientEmail:gmail, state:gstate, pan:document.getElementById('gstPanNo').value, legalName:document.getElementById('gstLegal').value, paymentId:res.razorpay_payment_id, amount:1500, owner:userEmail, date:new Date().toLocaleString('hi-IN'), status:'PAID ₹1500' }; await addDoc(collection(db,'gst_leads',userEmail,'leads'), leadData); alert('✅ ₹1500 Success!'); window.open('https://reg.gst.gov.in/registration/','_blank'); loadGstLeads(); }, "prefill": { "email": gmail, "contact": gmobile }, "theme": { "color": "#ff8f00" } }; var rzp=new Razorpay(options); rzp.open(); }
+async function loadGstLeads(){ if(!userEmail) return; const snap=await getDocs(collection(db,'gst_leads',userEmail,'leads')); let html=`<h4>📋 GST Customers: ${snap.size}</h4>`; snap.forEach(d=>{ const g=d.data(); html+=`<div style="border:1px solid #ff8f00;padding:8px;border-radius:8px;margin:5px 0;background:#fff8e1"><b>${g.clientName}</b> - ${g.clientMobile}</div>`; }); const el=document.getElementById('gstLeadsList'); if(el) el.innerHTML=html; }
+window.calculateReturn=()=>{ const sale = parseFloat(document.getElementById('retSale').value)||0; const purchase = parseFloat(document.getElementById('retPurchase').value)||0; if(sale==0){ const e=document.getElementById('retCalcResult'); if(e) e.innerHTML='<p style="color:red;text-align:center">पहले Sale डालो!</p>'; return; } const gstOnSale = sale * 0.03; const gstOnPurchase = purchase * 0.03; const netGst = gstOnSale - gstOnPurchase; const totalPayGovt = netGst > 0? netGst : 0; const e=document.getElementById('retCalcResult'); if(e) e.innerHTML = `<div style="background:#fff8e1;border:2px solid #ff8f00;padding:10px;border-radius:10px"><b style="background:yellow;padding:4px 8px">🏛️ सरकार को: ₹${totalPayGovt.toLocaleString('en-IN')}</b><br><b>Service: ₹500</b></div>`; }
+window.autoReturnFromHUID=async()=>{ if(!userEmail) return; const e=document.getElementById('retCalcResult'); if(e) e.innerHTML='<p style="text-align:center;color:blue">🔍 Smart Code से हिसाब जोड़ रहा हूँ...</p>'; const shopSnap = await getDoc(doc(db,'shops',userEmail)); let lastTs = 0; if(shopSnap.exists() && shopSnap.data().lastReturnTs){ lastTs = shopSnap.data().lastReturnTs; } const snap = await getDocs(collection(db,'jewellery_bills',userEmail,'bills')); let totalSale = 0; let count = 0; snap.forEach(d=>{ const b = d.data(); const billTs = b.createdAt || 0; if(billTs > lastTs){ let w = parseFloat(b.iweight)||0; let r = parseFloat(b.irate)||0; let m = parseFloat((b.imaking||'0').toString().replace('%',''))||0; let goldValue = w * r; let makingValue = (goldValue * m)/100; totalSale += goldValue + makingValue; count++; } }); const saleEl=document.getElementById('retSale'); if(saleEl) saleEl.value = Math.round(totalSale); if(e) e.innerHTML = `<div style="background:#e8f5e9;border:2px solid #00c853;padding:10px;border-radius:10px">✅ Auto हिसाब बन गया! Bill: ${count}, Sale: ₹${totalSale.toLocaleString('en-IN')}</div>`; }
+window.payAndFileReturn=async()=>{ const gstin=document.getElementById('retGstin').value.trim().toUpperCase(); const retEmail=document.getElementById('retEmail').value.trim(); const retMonth=document.getElementById('retMonth').value; if(!gstin||!retEmail||!retMonth){ alert('⚠️ GSTIN, Email और Month डालो!'); return; } var options={ "key": RAZORPAY_KEY, "amount": 500*100, "currency": "INR", "name": "Vyapar Bandhu - GST Return", "description": "Return Assistance Service ₹500", "handler": async function(res){ const data={ gstin, email:retEmail, mobile:document.getElementById('retMobile').value, month:retMonth, type:document.getElementById('retType').value, sale:document.getElementById('retSale').value, purchase:document.getElementById('retPurchase').value, paymentId:res.razorpay_payment_id, amount:500, owner:userEmail, date:new Date().toLocaleString('hi-IN'), status:'PAID ₹500' }; await addDoc(collection(db,'gst_returns',userEmail,'returns'), data); await setDoc(doc(db,'shops',userEmail), { lastReturnTs: Date.now(), lastReturnMonth: retMonth }, {merge:true}); alert('✅ ₹500 Success!'); window.open('https://services.gst.gov.in/services/login','_blank'); loadReturnLeads(); loadShopProfile(); }, "prefill": { "email": retEmail }, "theme": { "color": "#1976d2" } }; var rzp=new Razorpay(options); rzp.open(); }
+async function loadReturnLeads(){ if(!userEmail) return; const snap=await getDocs(collection(db,'gst_returns',userEmail,'returns')); let html=`<h4>📊 Return Customers: ${snap.size}</h4>`; snap.forEach(d=>{ const r=d.data(); html+=`<div style="border:1px solid #1976d2;padding:8px;border-radius:8px;margin:5px 0;background:#e3f2fd"><b>${r.gstin}</b> - ${r.month}</div>`; }); const el=document.getElementById('returnLeadsList'); if(el) el.innerHTML=html; }
+window.updateMetalType=()=>{ const metal = document.getElementById('imetal').value; const karatSelect = document.getElementById('ikarat'); if(!karatSelect) return; if(metal==='Chandi'){ karatSelect.innerHTML = `<option value="">-- चाँदी प्योरिटी --</option><option value="999 Fine Silver">999 Fine Silver</option><option value="925 Sterling Silver">925 Sterling Silver</option>`; } else { karatSelect.innerHTML = `<option value="">-- कैरेट --</option><option value="24K (999)">24K (999)</option><option value="22K (916)">22K (916)</option><option value="18K (750)">18K (750)</option>`; } }
+window.generateNewHUID=()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } if(!IS_OWNER() && walletBalance<20){ alert("⚠️ Balance कम है! ₹"+walletBalance+" hai"); return; } let chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let newCode=''; for(let i=0;i<6;i++) newCode+=chars[Math.floor(Math.random()*chars.length)]; const el=document.getElementById('ihuid'); if(el) el.value=newCode; const st=document.getElementById('huidStatus'); if(st) st.innerHTML='✅ नया Smart Code: <b style="color:green;font-size:20px">'+newCode+'</b>'; }
+window.saveBill=async()=>{ if(!shopProfile){ alert("⚠️ पहले दुकान Setup करो!"); return; } const smartCode=document.getElementById('ihuid').value.trim().toUpperCase(); if(!smartCode){alert('Smart Code बनाओ!');return} const walletRef = doc(db,"wallets",userEmail); const walletSnap = await getDoc(walletRef); let liveBalance = walletSnap.exists()? (walletSnap.data().balance||0) : 0; if(!IS_OWNER() && liveBalance < 20){ alert("⚠️ Balance कम है! Recharge karo"); return; } const file=document.getElementById('iphoto').files[0]; let photo=''; if(file) photo=await toBase64(file); let makingRaw = document.getElementById('imaking').value.replace('%','').trim(); const metalType = document.getElementById('imetal').value || 'Sona'; const data={ metalType: metalType, cname:cname.value, caddress:caddress.value, cmobile:cmobile.value, iname:iname.value, iweight:iweight.value, irate:irate.value, imaking:makingRaw, huid:smartCode, smartCode:smartCode, bisHuid:ihallmark.value, hallmark:ihallmark.value, karat:ikarat.value, shopName:shopProfile.shopName, shopMobile:shopProfile.shopMobile, shopAddress:shopProfile.shopAddress, shopGst:shopProfile.shopGst, shopLogo:shopProfile.logo, photo:photo, date:new Date().toLocaleString('hi-IN'), createdAt: Date.now(), owner:userEmail, isFree: IS_OWNER()? true : false }; await setDoc(doc(db,'jewellery_bills',userEmail,'bills',smartCode), data); if(!IS_OWNER()){ try{ await updateDoc(walletRef,{balance: increment(-20)}); }catch(e){ await setDoc(walletRef,{balance:liveBalance-20,email:userEmail},{merge:true}); } await addDoc(collection(db,'wallet_history'),{type:'BILL',to:userEmail,amount:-20,smartCode:smartCode,date:new Date().toLocaleString('hi-IN'),timestamp:Date.now()}); walletBalance = liveBalance - 20; updateWalletUI(); alert('✅ Bill Save! ₹20 कटा (सिर्फ बिल के लिए वाला पैसा)'); } else { alert('👑 Owner FREE! Bill Save ho gaya'); } loadAll(); }
+window.searchBill=async()=>{ let qText = (document.getElementById('search')?.value || "").trim().toUpperCase(); if(!qText){ alert('Smart Code डालो!'); return; } const q=query(collectionGroup(db,'bills'), where('huid','==',qText)); const snap=await getDocs(q); render(snap); }
+window.loadAll=async()=>{ if(!userEmail) return; const snap=await getDocs(collection(db,'jewellery_bills',userEmail,'bills')); render(snap, true); }
+function render(snap, isMain=false){
+let html=''; snap.forEach(d=>{ const b=d.data(); let cleanMaking = (b.imaking||'').toString().replace(/%/g,''); const isChandi = (b.metalType==='Chandi'); const metalEmoji = isChandi? '🥈' : '💎'; const metalLabel = isChandi? 'चाँदी' : 'सोना'; const shopHead = b.shopName? `<div style="display:flex;align-items:center;gap:8px;background:#fff8e1;padding:8px;border-radius:8px;margin-bottom:8px;border:2px solid #ff8f00"><img src="${b.shopLogo||'logo.png'}" style="width:40px;height:40px;border-radius:50%"><div><b>${b.shopName}</b><br><span style="font-size:11px">📞 ${b.shopMobile}</span></div></div>` : ''; let w = parseFloat(b.iweight) || 0; let r = parseFloat(b.irate) || 0; let mPercent = parseFloat(cleanMaking) || 0; let metalValue = w * r; let makingValue = (metalValue * mPercent) / 100; let total = metalValue + makingValue; html+=`<div class="bill">${shopHead}<h3>${metalEmoji} ${b.iname} - ${b.iweight}g</h3><p>ग्राहक: ${b.cname}<br>Smart Code: <b style="color:green;font-size:20px">${b.smartCode||b.huid}</b><br>💰 Total: ₹${total.toLocaleString('en-IN')}</p></div>`; });
+const el = isMain? document.getElementById('resultMain') : document.getElementById('result'); if(el) el.innerHTML=html||'<p style="text-align:center;color:red">❌ कोई Bill नहीं मिला</p>'; }
+function toBase64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(file); }); }
+</script>
+<style>
+body{font-family:Arial;background:#fff8e1;margin:0;padding:10px}
+.card{background:white;padding:12px;border-radius:12px;margin:10px 0;border:2px solid #ff8f00;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+button{background:#ff8f00;color:white;border:none;padding:10px 16px;border-radius:8px;font-weight:bold;cursor:pointer;width:100%;margin:5px 0}
+input,select,textarea{width:100%;padding:10px;margin:5px 0;border:2px solid #ffb300;border-radius:8px;box-sizing:border-box}
+.bill{background:white;padding:10px;border-radius:10px;margin:10px 0;border-left:6px solid #ff8f00}
+</style>
+</head>
+<body>
+<div id="loginBox" style="text-align:center;padding:50px 20px"><h1>💎 Vyapar Bandhu</h1><button onclick="login()" style="width:auto;padding:12px 30px;background:#1976d2">🔐 Google Login</button></div>
+<div id="mainBox" style="display:none">
+<div style="display:flex;justify-content:space-between;align-items:center;background:#ff8f00;color:white;padding:10px;border-radius:10px"><div><b>Vyapar Bandhu</b><br><span id="userEmail" style="font-size:11px"></span></div><div style="text-align:right"><span id="walletBal" style="background:white;color:#ff8f00;padding:4px 10px;border-radius:20px;font-weight:bold">₹0</span><br><button onclick="logout()" style="width:auto;background:#333;padding:4px 10px;font-size:11px;margin-top:4px">Logout</button></div></div>
+
+<div class="card" style="background:linear-gradient(135deg,#fff3cd,#ffe082);border:3px dashed #ff8f00">
+<h3 style="margin:0;color:#e65100">💰 Referral - ₹10 कमाओ (सिर्फ बिल के लिए, विड्रॉल नहीं होगा)</h3>
+<input type="text" id="referralLink" readonly style="background:#fff;font-size:12px">
+<div style="display:flex;gap:6px"><button onclick="shareReferral()" style="background:#25D366">📲 WhatsApp Share</button><button onclick="copyReferral()" style="background:#333;width:auto">Copy</button></div>
+<div id="walletHistory" style="margin-top:10px;font-size:12px"></div>
+</div>
+
+<div id="shopDisplay"></div>
+<div class="card" id="shopSetupCard"><h3>🏪 दुकान Setup</h3><input id="sname" placeholder="दुकान का नाम"><input id="smobile" placeholder="मोबाइल नंबर"><input id="saddress" placeholder="पता"><input id="sgst" placeholder="GSTIN"><input id="stin" placeholder="TIN"><input type="file" id="slogo" accept="image/*"><button onclick="saveShopProfile()">✅ Save Shop</button></div>
+<div class="card"><h3>💳 Wallet Recharge (सिर्फ बिल के लिए, विड्रॉल नहीं)</h3><div style="display:flex;gap:6px"><input type="number" id="rechargeAmt" placeholder="₹ Amount" style="margin:0"><button onclick="rechargeWallet()" style="width:auto">Recharge</button></div><p>Balance: <b id="walletBal2">₹0</b></p></div>
+<div class="card"><h3>🔍 Bill Search</h3><input id="search" placeholder="Smart Code डालो"><button onclick="searchBill()">Search</button><div id="result"></div></div>
+<div class="card"><h3>💎 नया बिल बनाओ</h3><select id="imetal" onchange="updateMetalType()"><option value="Sona">💛 सोना</option><option value="Chandi">🤍 चाँदी</option></select><input id="cname" placeholder="ग्राहक नाम"><input id="cmobile" placeholder="ग्राहक मोबाइल"><input id="caddress" placeholder="पता"><input id="iname" placeholder="सामान"><input id="iweight" placeholder="वजन" type="number"><input id="irate" placeholder="रेट" type="number"><input id="imaking" placeholder="Making %" ><select id="ikarat"><option value="">-- कैरेट --</option><option value="24K (999)">24K (999)</option><option value="22K (916)">22K (916)</option></select><div style="display:flex;gap:6px"><input id="ihuid" placeholder="Smart Code" readonly><button onclick="generateNewHUID()" style="width:auto;background:green">Generate</button></div><div id="huidStatus"></div><input id="ihallmark" placeholder="BIS HUID"><input type="file" id="iphoto" accept="image/*"><button onclick="saveBill()" style="background:green">💾 Bill Save - ₹20</button></div>
+<div id="resultMain"></div>
+<div class="card"><h3>🏛️ GST Registration - ₹1500</h3><input id="gstName" placeholder="Client Name"><input id="gstMobile" placeholder="Mobile"><input id="gstEmail" placeholder="Gmail"><input id="gstState" placeholder="State"><input id="gstPanNo" placeholder="PAN"><input id="gstLegal" placeholder="Legal Name"><button onclick="payAndCreateGST()">₹1500 Pay</button><div id="gstLeadsList"></div></div>
+<div class="card"><h3>📊 GST Return</h3><input id="retGstin" placeholder="GSTIN"><input id="retEmail" placeholder="Email"><input id="retMobile" placeholder="Mobile"><select id="retMonth"><option value="">-- महीना --</option><option>January 2026</option><option>February 2026</option></select><select id="retType"><option>GSTR-3B</option><option>GSTR-1</option></select><input id="retSale" placeholder="Sale ₹" type="number"><input id="retPurchase" placeholder="Purchase ₹" type="number"><button onclick="autoReturnFromHUID()" style="background:green">🔍 Auto हिसाब</button><button onclick="calculateReturn()" style="background:#ff8f00">Calculate</button><div id="retCalcResult"></div><button onclick="payAndFileReturn()" style="background:#1976d2">₹500 Pay</button><div id="returnLeadsList"></div></div>
+</div>
+</body>
+</html>
